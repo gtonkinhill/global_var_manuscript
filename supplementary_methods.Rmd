@@ -1,0 +1,161 @@
+---
+title: "Suplementary methods"
+author: "Gerry Tonkin-Hill"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    fig_width: 12
+    fig_height: 8
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE,
+                      tidy=TRUE)
+```
+
+
+##Load libraries
+
+```{r }
+library(data.table)
+library(dplyr)
+library(ggfortify)
+library(ggplot2)
+library(Rtsne)
+library(flashpcaR)
+library(stringr)
+
+cols <- c("#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99","#e31a1c","#fdbf6f","#ff7f00","#cab2d6","#6a3d9a","#ffff99","#b15928","#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#b3de69","#fccde5","#d9d9d9","#bc80bd","#ccebc5","#ffed6f")
+```
+
+
+
+##Otu Analysis
+First we need to relabel the reads of Tessema et al to include isolate information for clustering.
+```{python, eval = FALSE}
+from mungo.fasta import FastaReader
+
+read_to_isolate={}
+with open("./data/read_info.csv", 'rU') as infile:
+  infile.next()
+  for line in infile:
+    line=line.strip().split(",")
+    read_to_isolate[line[0]]=line[1]
+
+with open("./processed_data/tessema2015_renamed.fas", 'w') as outfile:
+  for h,s in FastaReader("./data/tessema2015.fas"):
+    outfile.write(">"+read_to_isolate[h]+"."+h+"\n"+s+"\n")
+```
+
+We start by clustering the raw 454 reads along with the reads from Tessema et al using a python script that makes use of the Usearch software suite.
+```{bash, eval = FALSE}
+cat ./data/combined_all_454_noPOR.fasta ./processed_data/tessema2015_renamed.fas > ./processed_data/combined_454_tessema.fas
+
+python ~/clusterDBLa/clusterDBLa.py \
+  -o ./processed_data/ \
+  -r ./processed_data/combined_454_tessema.fas \
+  --cpu 20
+```
+
+###Binary Analysis
+
+Now we can investigate the isolates based on shared DBLa sequence types.
+
+```{r}
+isolateInformation <- fread("./data/isolate_information.csv"
+                            , header=TRUE
+                            , data.table = FALSE)
+#Add in country information
+isolateInformation$Country <- unlist(lapply(isolateInformation$Location
+                                            , function(x) {
+                                              str_split(x,  "_", n=2)[[1]][[1]]}))
+
+#Remove duplicate entries of isolates that have been sequenced more than once
+isolateInformation <- isolateInformation[!duplicated(isolateInformation$Isolate),]
+
+otuTable <- fread("./processed_data/combined_454_tessema_renamed_otuTable_binary.txt"
+                  , data.table = FALSE
+                  , header=TRUE)
+
+otuMatrix <- as.matrix(otuTable[,2:ncol(otuTable)])
+rownames(otuMatrix) <- otuTable$`#OTU ID`
+```
+
+We next perform some filtering. We exclude the lab isolates and only investigate isolates that were found to have more than 20 DBLa types. This was found to be a sensible thresholf on having adequetly sequences an isolates VAR repetoir. Furthermore as we are interested in the realtionship between isolates we exclude the singletons from the binary analysis.
+```{r}
+#Filter otus that only appear in one isolate and isolates with less than 20 types
+MIN_ISOLATE_PER_OTU = 2
+MIN_OTUS_PER_ISOLATE = 20
+otuMatrix <- otuMatrix[, colSums(otuMatrix) >= MIN_OTUS_PER_ISOLATE]
+otuMatrix <- otuMatrix[rowSums(otuMatrix) >= MIN_ISOLATE_PER_OTU, ]
+
+#Remove lab isolates
+otuMatrixNoLab <- otuMatrix[,!(colnames(otuMatrix) %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2"))]
+```
+
+###PCA
+```{r}
+otuMatrixNoLab_t <- t(otuMatrixNoLab)
+
+flash_pca <- flashpca(otuMatrixNoLab_t
+                      , stand="sd", method="eigen"
+                      , ndim=50, mem="high")
+
+pca_df <- data.frame(Isolate = rownames(otuMatrixNoLab_t)
+                     , flash_pca$vectors[, 1:6]
+                     , stringsAsFactors = FALSE)
+pca_df <- merge(pca_df, isolateInformation, by.x='Isolate', by.y='Isolate'
+                , all.x=TRUE)
+
+#PCA plot
+gg <- ggplot(pca_df, aes(X1, X2, colour=Country)) + geom_point() 
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + theme_bw()
+gg
+```
+
+###TSNE
+```{r}
+tsne <- Rtsne(flash_pca$vectors, perplexity=15
+              , check_duplicates=FALSE, pca=FALSE
+              , max_iter=1000, dims = 2)
+
+tsne_df <- data.frame(Isolate=rownames(otuMatrixNoLab_t)
+                      , x=tsne$Y[,1], y=tsne$Y[,2]
+                      , stringsAsFactors = FALSE)
+tsne_df <- merge(tsne_df, isolateInformation, by.x='Isolate', by.y='Isolate'
+                , all.x=TRUE)
+
+gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country)) + geom_point()
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + theme_bw()
+gg
+```
+
+
+
+#Run Admixture
+Set up the required input file
+```{r}
+setwd(wd)
+
+# admixOut <- otuDataFrame[, c(ncol(otuDataFrame), 1:(ncol(otuDataFrame)-1))]
+# admixOut[, 3:ncol(admixOut)]  <- apply(admixOut[, 3:ncol(admixOut)], 2, function(x) x+1)
+# write.table(admixOut, file="/home/users/allstaff/tonkin-hill.g/DBLalpha/454_analysis/ADMIXTURE/admix_454_minOtus20_minIso2.ped"
+#             , quote=FALSE, sep=" ", row.names = FALSE, col.names=FALSE)
+```
+
+Run Admixutre for different K
+```{r, engine = 'bash', eval = FALSE}
+# for K in {1..20};
+# do 
+# admixture  -s 12345 -j20 --cv admix_454_minOtus20_minIso2.ped $K | tee log${K}.out;
+# done
+```
+
+
+##Session Information
+```{r}
+sessionInfo()
+```
