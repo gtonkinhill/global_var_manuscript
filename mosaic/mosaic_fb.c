@@ -1542,6 +1542,8 @@ void print_backward_matrices(struct data *my_data, struct pars *my_pars, struct 
 /*Do kwise alignment with Viterbi*/
 
 void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices, int target) {
+	clock_t start_vt, end_vt;
+	start_vt = clock();
 
 	int pos_target, pos_seq, seq, l1, l2, *s1, *s2, tmp_copy;
 	int who_max, state_max, pos_max, who_max_n, state_max_n, pos_max_n;
@@ -1797,6 +1799,9 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 
 	ofp = fopen(my_pars->alignment_file, "a");
 	fprintf(ofp,"\nTarget: %s\tLength: %i\tMLlk: %.3lf\n",my_data->seqs[target]->name, my_data->seqs[target]->length, my_matrices->llk);
+
+	end_vt = clock();
+	printf("\n\n*** Aligned sequence in %.3lf secs CPU time! ***\n\n", ((double) (end_vt-start_vt)/CLOCKS_PER_SEC));
 
 	/*First print target sequence*/
 	cp++;
