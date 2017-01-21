@@ -1,0 +1,111 @@
+---
+title: "Supplementary Methods (Mosaic)"
+author: "Gerry Tonkin-Hill"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    fig_width: 12
+    fig_height: 8
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE,
+                      tidy=TRUE)
+```
+
+##Mosaic model
+The mosaic model is best run on protein sequence as the alignments will be more interpretable. It will also be more efficient as the algorithm complexity is of order $N^2 l^2$. Furthermore, we only want to compare isolates with isolates from other regions. Thus we remove lab isolates and those sequences that can not be translated. We say a sequence can be translated if the resulting protein sequence has no stop codons.
+
+First we translate all sequences to identify those that can not be succesfully translated.
+```{python, eval=FALSE}
+from mungo.sequence import sixFrameTranslation
+from mungo.fasta import FastaReader
+import os, sys
+from collections import defaultdict
+
+num_stops = 0
+seqCount = 0
+badSeqs = 0
+bad_lengths = []
+
+inputfile = "./mosaic_data/combined_454_tessema_renamed.fasta"
+output_file = "./mosaic_data/Protein_combined_454_tessema_renamed.fasta"
+
+with open(output_file + "_BadSeqs", 'w') as badfile:
+  with open(output_file, 'w') as outfile:
+    for h,s in FastaReader(inputfile):
+      stops = 9999
+      translation = sixFrameTranslation(s)
+      for frame in translation:
+        st = translation[frame].count('*')
+        if st < stops:
+          best = frame
+          stops = st
+      if stops <= num_stops:
+        outfile.write(">" + h + " frame_" + str(best) + "\n")
+        outfile.write(translation[best] + "\n")
+      else:
+        badSeqs += 1
+        bad_lengths.append(len(s))
+        badfile.write(">" + h + "\n")
+        badfile.write(s + "\n")
+      seqCount += 1
+
+print (str((100.0*badSeqs)/seqCount) + "percent or "
+  + str(badSeqs) + " out of " + str(seqCount) + " were not translated.")
+```
+
+97.14% of the sequences were successfully translated. We would now like to filter out those that did not translate along with the labratory isolates before clustering the remaining sequences.
+
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+
+successfully_translated = {}
+keep=set()
+
+for h,s in FastaReader("./mosaic_data/Protein_combined_454_tessema_renamed.fasta"):
+  successfully_translated[h]=s
+
+#Remove lab isolates
+with open("./mosaic_data/Protein_NoLab_combined_454_tessema.fasta", 'w') as outfile:
+  for h in successfully_translated:
+    if "DD2" in h.split(".")[0]: continue
+    if "HB3" in h.split(".")[0]: continue
+    if "3D7" in h.split(".")[0]: continue
+    outfile.write(">"+h+"\n"+s+"\n")
+    keep.add(h.split()[0])
+
+#Create filtered DNA sequence file for clustering
+with open("./mosaic_data/DNA_NoLab_translateable_combined_454_tessema.fasta", 'w') as outfile:
+  for h,s in FastaReader("./mosaic_data/combined_454_tessema_renamed.fasta"):
+    if h in keep:
+      outfile.write(">"+h+"\n"+s+"\n") 
+```
+
+We only want to look at a single copy of DBLa type as this will drastically reduce the computational complexity of the problem. We cluster the filtered DNA sequences at 96% id using the same pipline as was used in the binary type analysis.
+
+```{bash, eval=FALSE}
+python ./scripts/clusterDBLa.py -o ./mosaic_data/ -r ./mosaic_data/DNA_NoLab_translateable_combined_454_tessema.fasta --cpu 30 --verbose
+```
+
+We now extract the protein sequences that correspond to the centroids of the clusters.
+
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+
+centroids=set()
+for h,s in FastaReader("./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_centroids.fasta"):
+  centroids.add(h.split(";sample=")[0])
+
+with open("./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids.fasta", 'w') as outfile:
+  for h,s in FastaReader("./mosaic_data/Protein_NoLab_combined_454_tessema.fasta"):
+    if h.split()[0] in centroids:
+      outfile.write(">"+h+"\n"+s+"\n")
+```
+
+Now we have representative protein sequences for each DBLa type we can start to fit the jumpping hidden Markov model. Unfortunately the complete Baum-Welch algorithm  requires a number of full all-vs-all searches using the forward-backward algorithms and this is very computaitonaly instesive. Due to computational contraints this was impractable. Consequently, the slightly less accurate but much fast viterbi training algorithm was used.
+
+
+
+

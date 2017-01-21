@@ -17,7 +17,7 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8,
 
 ##Load libraries
 
-```{r }
+```{r}
 library(data.table)
 library(dplyr)
 library(ggfortify)
@@ -133,13 +133,9 @@ gg <- gg + theme_bw()
 gg
 ```
 
-
-
 #Run Admixture
 Set up the required input file
 ```{r}
-setwd(wd)
-
 # admixOut <- otuDataFrame[, c(ncol(otuDataFrame), 1:(ncol(otuDataFrame)-1))]
 # admixOut[, 3:ncol(admixOut)]  <- apply(admixOut[, 3:ncol(admixOut)], 2, function(x) x+1)
 # write.table(admixOut, file="/home/users/allstaff/tonkin-hill.g/DBLalpha/454_analysis/ADMIXTURE/admix_454_minOtus20_minIso2.ped"
@@ -152,6 +148,16 @@ Run Admixutre for different K
 # do 
 # admixture  -s 12345 -j20 --cv admix_454_minOtus20_minIso2.ped $K | tee log${K}.out;
 # done
+```
+
+##RaxML
+```{r}
+
+```
+
+##No alignment tree
+```{r}
+
 ```
 
 
