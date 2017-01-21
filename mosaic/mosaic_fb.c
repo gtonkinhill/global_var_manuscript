@@ -1543,8 +1543,6 @@ void print_backward_matrices(struct data *my_data, struct pars *my_pars, struct 
 
 void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_matrices, int target) {
 	clock_t start_vt, end_vt;
-	start_vt = clock();
-
 	int pos_target, pos_seq, seq, l1, l2, *s1, *s2, tmp_copy;
 	int who_max, state_max, pos_max, who_max_n, state_max_n, pos_max_n;
 	int who_next, state_next, pos_next, cp, i, j;
@@ -1554,6 +1552,7 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	FILE *ofp;
 
 	printf("\rAligning sequence %5i to rest using ML", target);
+	start_vt = clock();
 
 	tmp_copy = my_matrices->who_copy[target];
 	my_matrices->who_copy[target]=0;
