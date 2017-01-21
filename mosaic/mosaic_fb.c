@@ -1732,7 +1732,7 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 
 
 	/*Now print maximum likelihood*/
-	printf("\nMaximum Log likelihood  = %.5lf\n", max_rn);
+	printf("\nMaximum log-likelihood = %.5lf\n", max_rn);
 	my_matrices->llk = max_rn;
 
 	/*Now reconstruct ML path*/
@@ -1792,6 +1792,8 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 		printf("\n\n");
 	}
 
+	end_vt = clock();
+	printf("\n*** Aligned sequence in %.3lf secs CPU time! ***\n", ((double) (end_vt-start_vt)/CLOCKS_PER_SEC));
 
 	/*Reset copy state*/
 	my_matrices->who_copy[target]=tmp_copy;
@@ -1799,8 +1801,6 @@ void kalign_vt(struct data *my_data, struct pars *my_pars, struct matrices *my_m
 	ofp = fopen(my_pars->alignment_file, "a");
 	fprintf(ofp,"\nTarget: %s\tLength: %i\tMLlk: %.3lf\n",my_data->seqs[target]->name, my_data->seqs[target]->length, my_matrices->llk);
 
-	end_vt = clock();
-	printf("\n\n*** Aligned sequence in %.3lf secs CPU time! ***\n\n", ((double) (end_vt-start_vt)/CLOCKS_PER_SEC));
 
 	/*First print target sequence*/
 	cp++;
