@@ -87,7 +87,9 @@ We next perform some filtering. We exclude the lab isolates and only investigate
 #Filter otus that only appear in one isolate and isolates with less than 20 types
 MIN_ISOLATE_PER_OTU = 2
 MIN_OTUS_PER_ISOLATE = 20
+MAX_OTUS_PER_ISOLATE = Inf
 otuMatrix <- otuMatrix[, colSums(otuMatrix) >= MIN_OTUS_PER_ISOLATE]
+otuMatrix <- otuMatrix[, colSums(otuMatrix) <= MAX_OTUS_PER_ISOLATE]
 otuMatrix <- otuMatrix[rowSums(otuMatrix) >= MIN_ISOLATE_PER_OTU, ]
 
 #Remove lab isolates
@@ -99,7 +101,7 @@ otuMatrixNoLab <- otuMatrix[,!(colnames(otuMatrix) %in% c("3D7", "3D7xDD2", "DD2
 otuMatrixNoLab_t <- t(otuMatrixNoLab)
 
 flash_pca <- flashpca(otuMatrixNoLab_t
-                      , stand="sd", method="eigen"
+                      , stand="binom", method="eigen"
                       , ndim=50, mem="high")
 
 pca_df <- data.frame(Isolate = rownames(otuMatrixNoLab_t)
@@ -123,6 +125,7 @@ tsne <- Rtsne(flash_pca$vectors, perplexity=15
 
 tsne_df <- data.frame(Isolate=rownames(otuMatrixNoLab_t)
                       , x=tsne$Y[,1], y=tsne$Y[,2]
+                      , num_types =rowSums(otuMatrixNoLab_t)
                       , stringsAsFactors = FALSE)
 tsne_df <- merge(tsne_df, isolateInformation, by.x='Isolate', by.y='Isolate'
                 , all.x=TRUE)
@@ -133,33 +136,142 @@ gg <- gg + theme_bw()
 gg
 ```
 
+We can also colour by the number of types to investigate the impact of multiple infections
+```{r}
+gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country, alpha=num_types)) + geom_point()
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + theme_bw()
+gg
+```
+
+We can also investigate disease status.
+
+```{r}
+gg <- ggplot(tsne_df, aes(x=x, y=y, color=Disease_Status)) + geom_point()
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + theme_bw()
+gg
+```
+
+Age doesn't appear to be an issue.
+
+```{r}
+gg <- ggplot(tsne_df, aes(x=x, y=y, color=Age)) + geom_point()
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + theme_bw()
+gg
+```
+
 #Run Admixture
 Set up the required input file
+```{r, eval=FALSE}
+admixOut <- data.frame(family=rownames(otuMatrixNoLab_t),
+                       individual=rownames(otuMatrixNoLab_t),
+                       paternalId=rep(0, nrow(otuMatrixNoLab_t)),
+                       maternalId=rep(0, nrow(otuMatrixNoLab_t)),
+                       sex=rep(0, nrow(otuMatrixNoLab_t)),
+                       phenotype=rep(-9, nrow(otuMatrixNoLab_t)))
+admixOut <- cbind(admixOut, apply(otuMatrixNoLab_t, 2, function(x) x+1))
+write.table(admixOut, file="./processed_data/admixture_input.ped"
+            , quote=FALSE, sep=" "
+            , row.names = FALSE, col.names=FALSE)
+```
+
+Run Admixture v1.3 for different K
+```{bash, eval=FALSE}
+cd ./processed_data/
+for K in {1..10};
+do
+admixture -s 12345 -j20 --cv ./admixture_input.ped $K | tee log${K}.out;
+done
+cd ..
+```
+
+##RAxML
+First we need to produce a binary fasta file
+```{r, eval=FALSE}
+text=ggplot2:::interleave(paste(">", rownames(otuMatrixNoLab_t), sep=""),
+                          apply(otuMatrixNoLab_t, 1 , paste , collapse = "" ))
+writeLines(text, con="./processed_data/DBLa_binary.fasta",
+           sep="\n")
+```
+
+Now we can run RAxML
+
+```{bash, eval=FALSE}
+cd ./processed_data/
+~/standard-RAxML-8.2.8/raxmlHPC-PTHREADS -m BINCAT -p 12345 -s DBLa_binary.fasta -n raxmlTree_T1 -T 20 | tee raxml.log
+cd ..
+```
+
+##Alignment free comparison with FFP
+
+First we need to split the sequences into seperate fasta files for each isolate
+```{bash, eval=FALSE}
+mkdir ffp_data
+cd ffp_data
+cp ../processed_data/combined_454_tessema.fas ./
+cd ..
+```
+
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+from collections import defaultdict
+
+isolates = defaultdict(list)
+
+for h,s in FastaReader("./processed_data/combined_454_tessema.fas"):
+  isolates[h.split(".")[0]].append((h,s))
+
+for iso in isolates:
+  with open("./processed_data/"+iso+".fasta",'w') as outfile:
+    for s in isolates[iso]:
+      outfile.write(">"+s[0]+"\n"+s[1]+"\n")
+```
+
+We would now like to decide on an appropriate choice for the l-mer length. To investigate this we use the centroids after clustering the 3D7 isolate reads as a reference.
+```{bash, eval=FALSE}
+cd ffp_data
+python ../scripts/clusterDBLa.py -o ./ -r 3D7.fasta
+
+#Construct a word usage (vocabulary) profile
+ffpvprof -e 40 -f 2 3D7_renamed_centroids.fasta > ../processed_data/ffp_word_usage.txt
+
+#Construct a relative entropy profile
+ffpreprof -e 40 3D7_renamed_centroids.fasta > ../processed_data/ffp_entropy_profile.txt
+
+#We no longer need the lab isolates and can remove them
+rm *3D7*.fasta
+rm *DD2*.fasta
+rm *HB3*.fasta
+
+cd ..
+```
+
+We can now attempt to choose an appropriate value of l. First let look at word usage to get an idea of a lower bound.
 ```{r}
-# admixOut <- otuDataFrame[, c(ncol(otuDataFrame), 1:(ncol(otuDataFrame)-1))]
-# admixOut[, 3:ncol(admixOut)]  <- apply(admixOut[, 3:ncol(admixOut)], 2, function(x) x+1)
-# write.table(admixOut, file="/home/users/allstaff/tonkin-hill.g/DBLalpha/454_analysis/ADMIXTURE/admix_454_minOtus20_minIso2.ped"
-#             , quote=FALSE, sep=" ", row.names = FALSE, col.names=FALSE)
+word_usage <- fread("./processed_data/ffp_word_usage.txt",
+                    data.table = FALSE)
+plot(word_usage)
 ```
 
-Run Admixutre for different K
-```{r, engine = 'bash', eval = FALSE}
-# for K in {1..20};
-# do 
-# admixture  -s 12345 -j20 --cv admix_454_minOtus20_minIso2.ped $K | tee log${K}.out;
-# done
-```
-
-##RaxML
 ```{r}
-
+entropy <- fread("./processed_data/ffp_entropy_profile.txt",
+                    data.table = FALSE)
+plot(entropy)
 ```
 
-##No alignment tree
-```{r}
+Thus a choice of l=20 appears to be appropriate.
 
+We can now run the default FFP pipeline to obtain a distance matrix
+```{bash, eval=FALSE}
+cd ffp_data
+
+ls *.fasta > species.txt
+ffpry -m -l 20 *.fasta | ffpcol | ffprwn | ffpjsd -p species.txt > jensen_shannon_dist.phylip
+
+cd ..
 ```
-
 
 ##Session Information
 ```{r}
