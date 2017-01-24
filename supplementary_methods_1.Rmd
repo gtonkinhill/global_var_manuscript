@@ -25,6 +25,9 @@ library(ggplot2)
 library(Rtsne)
 library(flashpcaR)
 library(stringr)
+library(starmie)
+library(ggtree)
+library(ape)
 
 cols <- c("#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99","#e31a1c","#fdbf6f","#ff7f00","#cab2d6","#6a3d9a","#ffff99","#b15928","#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#b3de69","#fccde5","#d9d9d9","#bc80bd","#ccebc5","#ffed6f")
 ```
@@ -187,6 +190,64 @@ done
 cd ..
 ```
 
+Investigate the output of Admixture. First we need to load in the results.
+```{r}
+q_files <- Sys.glob("./processed_data/*.Q")
+p_files <- Sys.glob("./processed_data/*.P")
+log_files <- Sys.glob("./processed_data/log*.out")
+
+admix <- admixList(
+  mapply(loadAdmixture, q_files, p_files, log_files, SIMPLIFY = FALSE)
+)
+
+populations <- data.frame(Isolate=rownames(otuMatrixNoLab_t),
+                          stringsAsFactors = FALSE)
+populations <- merge(populations, isolateInformation,
+                     by.x="Isolate", by.y="Isolate", all.x=TRUE)
+populations <- populations[,c("Isolate", "Country")]
+populations <- populations[match(rownames(otuMatrixNoLab_t), populations$Isolate),]
+populations$Isolate <- 1:nrow(populations)
+```
+
+A quick look at the outcome of the cross validation method.
+```{r}
+bestK(admix)
+```
+
+This indicates that with two hidden populations we produce the smallest cross validation error. This split is consistent with the split between the African and non-African isolates. The large seperation between Africa and non-Africa is consistent with what has been seen in non-VAR population structure analyses and is also usually observed in analyses of human population structure. Lets look at this split.
+
+```{r}
+t <- getQ(admix[unlist(lapply(admix,getK))==2][[1]])
+rownames(t) <- 1:nrow(t)
+plotBar(t, populations = populations)
+```
+
+It is also worth taking a look at the K from 1 to 10
+```{r}
+plotMultiK(admix[order(unlist(lapply(admix,getK)))], populations)
+```
+
+The small dip in the cross-validation error at K=6 appears to correspond with Admixture infering different hidden populations for the three African countries. At K=6 Iran is also distinct. For all K PNG does is not seperated from the African background cluster. This could be because of the different experimental method used in obtaining the PNG isolates.
+
+We now take a closer look at the model with 6 underlying populations.
+```{r}
+t <- getQ(admix[unlist(lapply(admix,getK))==6][[1]])
+rownames(t) <- 1:nrow(t)
+plotBar(t, populations = populations)
+```
+
+Finally it is worth looking closer at a model with 10 underlying populations. That is the same number as the real number of countries present.
+
+```{r}
+t <- getQ(admix[unlist(lapply(admix,getK))==10][[1]])
+rownames(t) <- 1:nrow(t)
+plotBar(t, populations = populations)
+```
+
+A notable difference between K=6 and K=10 is that for K=6 Columbia appears to be very much within the African background cluster 2 whilst for K=10 cluster 7 indicates that Columbia is distinct from the vast majority of African isolates.
+
+It should be noted that these mixtures are built off of the binary dataset which ignores any relationship between DBLa types that are only present once. Consequently, the JHMM model approach is more appropriate.
+
 ##RAxML
 First we need to produce a binary fasta file
 ```{r, eval=FALSE}
@@ -202,6 +263,49 @@ Now we can run RAxML
 cd ./processed_data/
 ~/standard-RAxML-8.2.8/raxmlHPC-PTHREADS -m BINCAT -p 12345 -s DBLa_binary.fasta -n raxmlTree_T1 -T 20 | tee raxml.log
 cd ..
+```
+
+We can now look at the output of RAxML.
+```{r}
+raxml <- read.tree("./processed_data/RAxML_result.raxmlTree_T1")
+
+groupInfo <- isolateInformation %>% group_by(Country) %>%
+  do(taxa_list = .$Isolate)
+groupInfo <- groupInfo[!(groupInfo$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
+
+groups <- lapply(groupInfo$taxa_list, as.vector)
+names(groups) <- groupInfo$Country
+raxml <- groupOTU(raxml, groups)
+
+gg <- ggtree(raxml, aes(color=group, label=node)
+             , size=0.3, branch.length = "none", layout="circular")
+gg <- gg + scale_color_manual(values=cols,
+                              labels=names(groups)) +
+  theme(legend.position="right")
+gg
+```
+
+Lets check quickly how the Ugandan samples have clustered (doesnt appear interesting, do I include this?)
+```{r}
+raxml <- read.tree("./processed_data/RAxML_result.raxmlTree_T1")
+
+tempInfo <- isolateInformation
+tempInfo$Location[!grepl("Uganda", tempInfo$Location)] <- "Other"
+
+groupInfo <- tempInfo %>% group_by(Location) %>%
+  do(taxa_list = .$Isolate)
+groupInfo <- groupInfo[!(groupInfo$Location %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
+
+groups <- lapply(groupInfo$taxa_list, as.vector)
+names(groups) <- groupInfo$Location
+raxml <- groupOTU(raxml, groups)
+
+gg <- ggtree(raxml, aes(color=group, label=node)
+             , size=0.3, branch.length = "none", layout="circular")
+gg <- gg + scale_color_manual(values=cols,
+                              labels=names(groups)) +
+  theme(legend.position="right")
+gg
 ```
 
 ##Alignment free comparison with FFP
