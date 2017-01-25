@@ -39,6 +39,8 @@ AA_LIST = ['?','A','R','N','D','C','Q','E','G','H','I','L','K','M','F','P','S','
 
 def loadCounts(align_file, verbose):
   alignments = []
+  target=""
+  seq=""
 
   if verbose:
     print "loading file: ", align_file
@@ -58,6 +60,7 @@ def loadCounts(align_file, verbose):
         else:
           seq = seq + line.strip().split()[1]
 
+      if target=="": continue
       if len(line.strip().split())<1: #we have got to the end of the alignment
         assert len(target)==len(seq), "Lengths of target and seq do not match!"
         alignments.append((target,seq))
