@@ -195,7 +195,7 @@ def main():
 
   args = parser.parse_args()
 
-  check_runs(args.number_runs, args.align_files, args.verbose)
+  check_runs(args.num_runs, args.align_files, args.verbose)
 
   alignments=[]
   for a in args.align_files:
