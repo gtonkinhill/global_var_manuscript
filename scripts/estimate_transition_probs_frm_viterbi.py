@@ -1,8 +1,6 @@
 import sys, os
 import argparse
-import numpy as np
 from collections import defaultdict, Counter
-import glob
 from itertools import izip
 import math
 
@@ -39,8 +37,7 @@ AA_LIST = ['?','A','R','N','D','C','Q','E','G','H','I','L','K','M','F','P','S','
 
 def loadCounts(align_file, verbose):
   alignments = []
-  target=""
-  seq=""
+  isAlignment=False
 
   if verbose:
     print "loading file: ", align_file
@@ -51,6 +48,9 @@ def loadCounts(align_file, verbose):
         target=""
         seq=""
         isTarget=True
+        isAlignment=True
+        continue
+
       if "|" in line:
         isTarget=False
 
@@ -60,10 +60,12 @@ def loadCounts(align_file, verbose):
         else:
           seq = seq + line.strip().split()[1]
 
-      if target=="": continue
+      if not isAlignment: continue #we are not at the end of an alignment yet
+
       if len(line.strip().split())<1: #we have got to the end of the alignment
         assert len(target)==len(seq), "Lengths of target and seq do not match!"
         alignments.append((target,seq))
+        isAlignment=False
 
   return alignments
 
@@ -92,8 +94,6 @@ def calculate_probabilities(alignments, verbose):
     for t,s in izip(a[0],a[1]):
       if t!="-":
         aa_count[t]+=1
-      if s!="-":
-        aa_count[s]+=1
       if (t!="-") and (s!="-"):
         match_counts[tuple(sorted([t,s]))] += 1
         if prev_match:
@@ -199,7 +199,7 @@ def main():
 
   alignments=[]
   for a in args.align_files:
-    alignments.append(loadCounts(a, args.verbose))
+    alignments = alignments + loadCounts(a, args.verbose)
 
   prob_ins, prob_ext, insert_emission, match_emission = calculate_probabilities(alignments
     , args.verbose)
