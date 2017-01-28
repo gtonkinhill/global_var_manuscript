@@ -148,7 +148,7 @@ def printLogProbs(prob_ins, prob_ext, insert_emission, match_emission
       outfile.write(",".join([str(math.log(match_emission[(aa,bb)])) for bb in AA_LIST]))
       outfile.write("},\\\n")
 
-    return
+  return
 
 
 def check_runs(number_runs, align_files, verbose):
@@ -160,6 +160,8 @@ def check_runs(number_runs, align_files, verbose):
 
   for i in range(1, number_runs+1):
     logfile = log_file_ext + "_run" +str(i) + ".fasta_output.log"
+    if verbose:
+      print "Checking file: ", logfile
     with open(logfile, 'rU') as infile:
       finished=False
       for line in infile:
@@ -167,7 +169,7 @@ def check_runs(number_runs, align_files, verbose):
           finished=True
     assert finished, "Missing run " + logfile
 
-    return
+  return
 
 
 
