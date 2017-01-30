@@ -84,9 +84,11 @@ def calculate_probabilities(alignments, verbose):
   #First add 1 as a pseudocount (same as in zilversmit et al)
   for aa in AA_LIST:
     aa_count[aa]+=1
-  for i,aa in enumerate(AA_LIST):
+    match_counts[(aa,aa)] += 1
+  for aa in AA_LIST:
     for bb in AA_LIST[i:]:
-      match_counts[tuple(sorted([aa,bb]))] += 1
+      if aa==bb: continue #Dont double count diagonals
+      match_counts[(aa,bb)] += 1
 
   #Now iterate through alignments iteratively counting the various events
   prev_match=True
@@ -95,7 +97,7 @@ def calculate_probabilities(alignments, verbose):
       if t!="-":
         aa_count[t]+=1
       if (t!="-") and (s!="-"):
-        match_counts[tuple(sorted([t,s]))] += 1
+        match_counts[(t,s)] += 1
         if prev_match:
           match_to_match += 1
         else:
@@ -118,11 +120,13 @@ def calculate_probabilities(alignments, verbose):
     insert_emission[aa] = float(aa_count[aa])/sum(aa_count.values())
 
   match_emission = {}
-  for i,aa in enumerate(AA_LIST):
-    for bb in AA_LIST[i:]:
-      t = tuple(sorted([aa,bb]))
-      match_emission[(aa,bb)] = float(match_counts[t])/sum(match_counts.values())
-      match_emission[(bb,aa)] = match_emission[(aa,bb)]
+  for aa in AA_LIST:
+    total_for_aa = 0
+    for bb in AA_LIST:
+      total_for_aa += match_counts[(aa,bb)]
+    for bb in AA_LIST:
+      match_emission[(aa,bb)] = float(match_counts[(aa,bb)])/total_for_aa
+
 
   return prob_ins, prob_ext, insert_emission, match_emission
 
