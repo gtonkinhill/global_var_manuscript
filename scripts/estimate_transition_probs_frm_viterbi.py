@@ -86,7 +86,7 @@ def calculate_probabilities(alignments, verbose):
     aa_count[aa]+=1
     match_counts[(aa,aa)] += 1
   for aa in AA_LIST:
-    for bb in AA_LIST[i:]:
+    for bb in AA_LIST:
       if aa==bb: continue #Dont double count diagonals
       match_counts[(aa,bb)] += 1
 
