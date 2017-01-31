@@ -28,6 +28,7 @@ library(stringr)
 library(starmie)
 library(ggtree)
 library(ape)
+library(pheatmap)
 
 cols <- c("#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99","#e31a1c","#fdbf6f","#ff7f00","#cab2d6","#6a3d9a","#ffff99","#b15928","#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#b3de69","#fccde5","#d9d9d9","#bc80bd","#ccebc5","#ffed6f")
 ```
@@ -163,6 +164,50 @@ gg <- ggplot(tsne_df, aes(x=x, y=y, color=Age)) + geom_point()
 gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
 gg <- gg + theme_bw()
 gg
+```
+
+We can also investigate the most conserved DBLa types. First lets look at a histogram of the number of times each DBLa is seen in the global population.
+```{r}
+h <- hist(rowSums(otuMatrixNoLab), breaks=500, plot = FALSE)
+plot(h$mids, h$counts, log="y")
+abline(v=c(20,50), col='red')
+```
+
+This suggests that the majority of types are seen less than 20 times. We now take a closer look at those seen at least 20 times.
+```{r}
+majorTypeMatrix <- otuMatrixNoLab[rowSums(otuMatrixNoLab)>=20,]
+col_annotations <- data.frame(Isolate = colnames(majorTypeMatrix),
+                              stringsAsFactors = FALSE)
+col_annotations <- merge(col_annotations, isolateInformation,
+                         by.x="Isolate", by.y="Isolate",
+                         all.x=TRUE)
+rownames(col_annotations) <- col_annotations$Isolate
+col_annotations <- col_annotations[, c("Isolate","Country")]
+col_annotations <- col_annotations[order(col_annotations$Country),]
+majorTypeMatrix <- majorTypeMatrix[, match(col_annotations$Isolate, colnames(majorTypeMatrix))]
+col_annotations$Isolate <- NULL
+pheatmap(majorTypeMatrix, cluster_cols = FALSE
+         , annotation_col = col_annotations
+         , show_rownames = FALSE)
+```
+
+There are also a number of types that are very conserved. We now look closer at those seen more than 50 times
+```{r}
+majorTypeMatrix <- otuMatrixNoLab[rowSums(otuMatrixNoLab)>=50,]
+dim(majorTypeMatrix)
+col_annotations <- data.frame(Isolate = colnames(majorTypeMatrix),
+                              stringsAsFactors = FALSE)
+col_annotations <- merge(col_annotations, isolateInformation,
+                         by.x="Isolate", by.y="Isolate",
+                         all.x=TRUE)
+rownames(col_annotations) <- col_annotations$Isolate
+col_annotations <- col_annotations[, c("Isolate","Country")]
+col_annotations <- col_annotations[order(col_annotations$Country),]
+majorTypeMatrix <- majorTypeMatrix[, match(col_annotations$Isolate, colnames(majorTypeMatrix))]
+col_annotations$Isolate <- NULL
+pheatmap(majorTypeMatrix, cluster_cols = FALSE
+         , annotation_col = col_annotations
+         , show_rownames = FALSE)
 ```
 
 #Run Admixture
