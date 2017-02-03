@@ -208,6 +208,11 @@ col_annotations$Isolate <- NULL
 pheatmap(majorTypeMatrix, cluster_cols = FALSE
          , annotation_col = col_annotations
          , show_rownames = FALSE)
+
+write.table(rownames(majorTypeMatrix), file="./processed_data/majorTypesGE50.txt"
+            , quote = FALSE
+            , row.names = FALSE
+            , col.names = FALSE)
 ```
 
 #Run Admixture
