@@ -422,6 +422,14 @@ We can now run a script to calculate the ffp distance matrix. The original ffp s
 python ./scripts/ffp.py --kmer_length 20 --out ./processed_data/ffp_distance_matrix.phylip --seq ./processed_data/combined_454_tessema.fas --verbose
 ```
 
+Finally a tree was built using fastme v2.1.4 with default parameters in interactive mode. We can now have a look at the resulting tree.
+
+```{r}
+
+```
+
+
+
 ##Session Information
 ```{r}
 sessionInfo()
