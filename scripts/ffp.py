@@ -71,7 +71,7 @@ def calculateDistMatrix(freqMatrix, isolates, outputfile, verbose):
   with open(outputfile, 'w') as outfile:
     outfile.write(str(len(isolates))+"\n")
     for i,iso in enumerate(isolates):
-      outfile.write(" ".join([iso]+[str(d) for d in dm[i,:]]) + "\n")
+      outfile.write(" ".join([iso]+[str.format("{0:.10f}", d) for d in dm[i,:]]) + "\n")
 
   return
 
