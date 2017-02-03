@@ -1,6 +1,6 @@
 from mungo.fasta import FastaReader
 import numpy as np
-from collection import defaultdict
+from collections import defaultdict
 from scipy.spatial.distance import pdist, squareform
 from scipy.stats import entropy
 import argparse
@@ -16,7 +16,7 @@ def loadSequences(inputfile, kmer_length, verbose):
   isolate_seqs = defaultdict(list)
   kmers = {}
   kmer_count = 0
-  for h,s in FastaReader(INPUTFILE):
+  for h,s in FastaReader(inputfile):
     iso = h.split(".")[0]
     s = s.replace("A", "R")
     s = s.replace("G", "R")
@@ -65,13 +65,13 @@ def calculateDistMatrix(freqMatrix, isolates, outputfile, verbose):
   if verbose:
     print "Calculating distance matrix..."
 
-  dm = squareform(pdist(freqMatrix, JSD))
+  dm = squareform(pdist(np.transpose(freqMatrix), JSD))
 
   #Now print out the resulting matrix in PHYLIP format
   with open(outputfile, 'w') as outfile:
     outfile.write(str(len(isolates))+"\n")
     for i,iso in enumerate(isolates):
-      outfile.write(iso + " ".join([str(d) for d in dm[i,:]]) + "\n")
+      outfile.write(" ".join([iso]+[str(d) for d in dm[i,:]]) + "\n")
 
   return
 

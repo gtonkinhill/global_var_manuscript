@@ -412,14 +412,9 @@ plot(entropy)
 
 Thus a choice of l=20 appears to be appropriate.
 
-We can now run the default FFP pipeline to obtain a distance matrix
+We can now run a script to calculate the ffp distance matrix. The original ffp script from xxx generated segment faults when we attempted to use it.
 ```{bash, eval=FALSE}
-cd ffp_data
-
-ls *.fasta > species.txt
-ffpry -m -l 20 *.fasta | ffpcol | ffprwn | ffpjsd -p species.txt > jensen_shannon_dist.phylip
-
-cd ..
+python ./scripts/ffp.py --kmer_length 20 --out ./processed_data/ffp_distance_matrix.phylip --seq ./processed_data/combined_454_tessema.fas --verbose
 ```
 
 ##Session Information
