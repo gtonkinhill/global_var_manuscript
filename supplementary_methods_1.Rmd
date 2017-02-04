@@ -215,6 +215,10 @@ write.table(rownames(majorTypeMatrix), file="./processed_data/majorTypesGE50.txt
             , col.names = FALSE)
 ```
 
+```{bash, eval=FALSE}
+blastn -perc_identity 96 -query ./majorTypesGE50.fasta -evalue 10 -outfmt '6 qseqid sseqid qlen length nident pident evalue bitscore salltitles'  -db nt -remote -out blastNTsearch.txt
+```
+
 #Run Admixture
 Set up the required input file
 ```{r, eval=FALSE}
