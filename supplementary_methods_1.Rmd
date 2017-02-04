@@ -104,9 +104,8 @@ otuMatrixNoLab <- otuMatrix[,!(colnames(otuMatrix) %in% c("3D7", "3D7xDD2", "DD2
 ```{r}
 otuMatrixNoLab_t <- t(otuMatrixNoLab)
 
-flash_pca <- flashpca(otuMatrixNoLab_t
-                      , stand="binom", method="eigen"
-                      , ndim=50, mem="high")
+flash_pca <- flashpca(otuMatrixNoLab_t, ndim=50, stan="binom"
+                      , maxiter=1000)
 
 pca_df <- data.frame(Isolate = rownames(otuMatrixNoLab_t)
                      , flash_pca$vectors[, 1:6]
@@ -123,7 +122,7 @@ gg
 
 ###TSNE
 ```{r}
-tsne <- Rtsne(flash_pca$vectors, perplexity=15
+tsne <- Rtsne(flash_pca$vectors[,1:20], perplexity=10
               , check_duplicates=FALSE, pca=FALSE
               , max_iter=1000, dims = 2)
 
