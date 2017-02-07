@@ -132,12 +132,13 @@ def calculate_probabilities(alignments, verbose):
 
 
 def printLogProbs(prob_ins, prob_ext, insert_emission, match_emission
-  , outputfile, verbose):
+  , outputfile, total_log_likelihood, verbose):
 
   if verbose:
     print "Writing output required for mosaic to: ", outputfile
 
   with open(outputfile, 'w') as outfile:
+    outfile.write("Total log likelihood: " + str(total_log_likelihood) + "\n\n")
     outfile.write("Insert probability (del): " + str(prob_ins) + "\n")
     outfile.write("Extension probability (eps): " + str(prob_ext) + "\n\n\n")
 
@@ -162,6 +163,8 @@ def check_runs(number_runs, align_files, verbose):
 
   log_file_ext = align_files[0].split("_run")[0]
 
+  total_log_likelihood = 0.0
+
   for i in range(1, number_runs+1):
     logfile = log_file_ext + "_run" +str(i) + ".fasta_output.log"
     if verbose:
@@ -169,11 +172,13 @@ def check_runs(number_runs, align_files, verbose):
     with open(logfile, 'rU') as infile:
       finished=False
       for line in infile:
+        if "Maximum log-likelihood =" in line:
+          total_log_likelihood+=float(line.split("=")[1].strip())
         if "Program completed in" in line:
           finished=True
     assert finished, "Missing run " + logfile
 
-  return
+  return total_log_likelihood
 
 
 
@@ -201,7 +206,8 @@ def main():
 
   args = parser.parse_args()
 
-  check_runs(args.num_runs, args.align_files, args.verbose)
+  total_log_likelihood = check_runs(args.num_runs, args.align_files
+    , args.verbose)
 
   alignments=[]
   for a in args.align_files:
@@ -211,7 +217,7 @@ def main():
     , args.verbose)
 
   printLogProbs(prob_ins, prob_ext, insert_emission, match_emission
-  , args.outputfile, args.verbose)
+  , args.outputfile, total_log_likelihood, args.verbose)
 
 
   return
