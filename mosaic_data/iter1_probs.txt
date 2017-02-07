@@ -1,3 +1,5 @@
+Total log likelihood: -4588129.67848
+
 Insert probability (del): 0.00779841407326
 Extension probability (eps): 0.211731528483
 
