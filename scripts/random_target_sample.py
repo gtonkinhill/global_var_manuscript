@@ -8,7 +8,7 @@ seq_list = []
 count=0
 input=sys.argv[1]
 
-with open(input + "_mapping.txt", 'w') as outfile:
+with open(input + "_mappingJump.txt", 'w') as outfile:
   for h,s in FastaReader(input):
     count+=1
     outfile.write("seq" + str(count) + "\t" + h + "\n")
@@ -24,7 +24,7 @@ with open(input[:-6] + "_randomSampleTargetSize" + str(SAMPLE_SIZE) +".fasta", '
   count=0
   for s in rand_seq_list:
     if count<SAMPLE_SIZE:
-      outfile.write(">"+"target_"+t+"\n"+seqs[s]+"\n")
+      outfile.write(">"+"target_"+s+"\n"+seqs[s]+"\n")
     else:
       outfile.write(">"+"db_"+s+"\n"+seqs[s]+"\n")
     count+=1
