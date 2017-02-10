@@ -144,5 +144,16 @@ Iterate until convergence:
 1) Compute the Viterbi paths of all sequences
 2) Count frequencies of events and calculate parameters
 3) Update -> 1) 
+4) Stop when the major paramters del and eps change by less than 1%. 
+
+The algorithm converged after 7 iterations.
+
+This gives us the non-jump parameters which we fix when estimating a likelihood surface for the jump parameter. Due to computational constraints we could not estimate the jump parameter by computing and all-vs-all search at each parameter point. Thus we resort to searching 1000 randomly chosen target sequences against the entire dataset. That is 1000-vs-all. First, 1000 sequences are randomly selected as targets.
+
+```{bash, eval=FALSE}
+cd mosaic_processed_data
+python ../scripts/random_target_sample.py Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta
+cd ..
+```
 
 
