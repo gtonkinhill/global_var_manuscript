@@ -156,4 +156,53 @@ python ../scripts/random_target_sample.py Protein_NoLab_translateable_combined_4
 cd ..
 ```
 
+```{bash, eval=FALSE}
+import glob
+from collections import defaultdict
 
+jump_llk = defaultdict(list)
+for logfile in glob.glob("*jump*_output.log"):
+  jump = float(logfile.split("jump")[1].split("_output")[0])
+  with open(logfile, 'rU') as infile:
+    for line in infile:
+      if "Maximum log-likelihood =" in line:
+          jump_llk[jump].append(float(line.split("=")[1].strip()))
+
+with open("jump_llk.csv", 'w') as outfile:
+  for j in sorted(jump_llk.keys()):
+    outfile.write(",".join([str(j)]+[str(l) for l in jump_llk[j]]) + "\n")
+```
+
+Lets investigate the jump log-likelihoods
+```{r}
+library(data.table)
+library(ggplot2)
+
+llk <- read.table("./mosaic_data/jump_llk.csv"
+                  , sep=",", header = FALSE, fill = TRUE)
+
+llk_matrix <- data.matrix(llk[,2:ncol(llk)])
+
+rownames(llk_matrix) <- llk[,1]
+
+sum_stat <- function(x,i){
+  t<-x[i]
+  sum(t, na.rm = TRUE)
+}
+
+llk_df <- data.frame(jump=rownames(llk_matrix),
+           llk=rowSums(llk_matrix, na.rm = TRUE),
+           CI.L=unlist(apply(llk_matrix, 1
+              , function(x){boot.ci(boot(x, sum_stat, 1000),type="perc")$percent[[4]]} )),
+           CI.R=unlist(apply(llk_matrix, 1
+              , function(x){boot.ci(boot(x, sum_stat, 1000),type="perc")$percent[[5]]} )),
+           stringsAsFactors = FALSE)
+
+ggplot(llk_df, aes(x=jump, y=llk, group=1)) +
+    geom_line() +
+    geom_errorbar(width=.1, aes(ymin=CI.L, ymax=CI.R)) +
+    geom_point(shape=21, size=3, fill="white") + 
+    ylim(c(-110000,-90000))
+
+rownames(llk_matrix)[which.max(rowSums(llk_matrix, na.rm = TRUE))]
+```
