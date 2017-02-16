@@ -10,7 +10,7 @@ output:
 
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8,
-                      echo=FALSE, warning=FALSE, message=FALSE,
+                      echo=TRUE, warning=FALSE, message=FALSE,
                       tidy=TRUE)
 ```
 
@@ -23,7 +23,6 @@ library(dplyr)
 library(ggfortify)
 library(ggplot2)
 library(Rtsne)
-library(flashpcaR)
 library(stringr)
 library(starmie)
 library(ggtree)
@@ -86,6 +85,9 @@ otuMatrix <- as.matrix(otuTable[,2:ncol(otuTable)])
 rownames(otuMatrix) <- otuTable$`#OTU ID`
 ```
 
+We found a total of `r sum(otuMatrix)` reads in the combined dataset, which clustered into a total of `r nrow(otuMatrix)`
+
+
 We next perform some filtering. We exclude the lab isolates and only investigate isolates that were found to have more than 20 DBLa types. This was found to be a sensible thresholf on having adequetly sequences an isolates VAR repetoir. Furthermore as we are interested in the realtionship between isolates we exclude the singletons from the binary analysis.
 ```{r}
 #Filter otus that only appear in one isolate and isolates with less than 20 types
@@ -94,35 +96,67 @@ MIN_OTUS_PER_ISOLATE = 20
 MAX_OTUS_PER_ISOLATE = Inf
 otuMatrix <- otuMatrix[, colSums(otuMatrix) >= MIN_OTUS_PER_ISOLATE]
 otuMatrix <- otuMatrix[, colSums(otuMatrix) <= MAX_OTUS_PER_ISOLATE]
-otuMatrix <- otuMatrix[rowSums(otuMatrix) >= MIN_ISOLATE_PER_OTU, ]
 
 #Remove lab isolates
 otuMatrixNoLab <- otuMatrix[,!(colnames(otuMatrix) %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2"))]
+otuMatrixNoLab <- otuMatrixNoLab[rowSums(otuMatrixNoLab) >= MIN_ISOLATE_PER_OTU, ]
+```
+
+We can now look at the number of reads per isolate for the different countries.
+```{r}
+otu_sums <- data.frame(Isolate=colnames(otuMatrixNoLab), num_otus=colSums(otuMatrixNoLab)
+                       , stringsAsFactors = FALSE)
+  
+otu_sums <- merge(otu_sums, isolateInformation, by.x='Isolate', by.y='Isolate'
+                , all.x=TRUE)
+
+median_summary <- otu_sums %>% group_by(Country) %>% 
+  summarise(n=n(),
+            median=median(num_otus),
+            max=max(num_otus))
+  
+#boxplot plot 
+gg <- ggplot(otu_sums, aes(factor(Country), num_otus, fill=Country)) + geom_boxplot()
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + theme_bw()
+gg
 ```
 
 ###PCA
 ```{r}
 otuMatrixNoLab_t <- t(otuMatrixNoLab)
 
-flash_pca <- flashpca(otuMatrixNoLab_t, ndim=50, stan="binom"
-                      , maxiter=1000)
+pca <- prcomp(otuMatrixNoLab_t)
 
-pca_df <- data.frame(Isolate = rownames(otuMatrixNoLab_t)
-                     , flash_pca$vectors[, 1:6]
+pca <- data.frame(Isolate = rownames(otuMatrixNoLab_t)
+                     , pca$x[, 1:6]
                      , stringsAsFactors = FALSE)
-pca_df <- merge(pca_df, isolateInformation, by.x='Isolate', by.y='Isolate'
+
+pca <- merge(pca, isolateInformation, by.x='Isolate', by.y='Isolate'
                 , all.x=TRUE)
 
 #PCA plot
-gg <- ggplot(pca_df, aes(X1, X2, colour=Country)) + geom_point() 
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- ggplot(pca, aes(PC1, PC2, colour=Country)) + geom_point() 
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
 gg <- gg + theme_bw()
 gg
 ```
 
+Also worth looking at the 3rd and 4th principal components that appear to split mainly on the different African countries.
+```{r}
+#PCA plot
+gg <- ggplot(pca, aes(PC3, PC4, colour=Country)) + geom_point() 
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
+gg <- gg + theme_bw()
+gg
+```
+
+
 ###TSNE
 ```{r}
-tsne <- Rtsne(flash_pca$vectors[,1:20], perplexity=10
+pca_tsne <- prcomp(otuMatrixNoLab_t, scale. = TRUE)
+
+tsne <- Rtsne(pca_tsne$x[,1:30], perplexity=10
               , check_duplicates=FALSE, pca=FALSE
               , max_iter=1000, dims = 2)
 
@@ -134,7 +168,7 @@ tsne_df <- merge(tsne_df, isolateInformation, by.x='Isolate', by.y='Isolate'
                 , all.x=TRUE)
 
 gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
 gg <- gg + theme_bw()
 gg
 ```
@@ -142,7 +176,7 @@ gg
 We can also colour by the number of types to investigate the impact of multiple infections
 ```{r}
 gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country, alpha=num_types)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
 gg <- gg + theme_bw()
 gg
 ```
@@ -151,7 +185,7 @@ We can also investigate disease status.
 
 ```{r}
 gg <- ggplot(tsne_df, aes(x=x, y=y, color=Disease_Status)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
 gg <- gg + theme_bw()
 gg
 ```
@@ -160,7 +194,7 @@ Age doesn't appear to be an issue.
 
 ```{r}
 gg <- ggplot(tsne_df, aes(x=x, y=y, color=Age)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
 gg <- gg + theme_bw()
 gg
 ```
