@@ -1,0 +1,70 @@
+
+
+This is RAxML version 8.2.8 released by Alexandros Stamatakis on March 23 2016.
+
+With greatly appreciated code contributions by:
+Andre Aberer      (HITS)
+Simon Berger      (HITS)
+Alexey Kozlov     (HITS)
+Kassian Kobert    (HITS)
+David Dao         (KIT and HITS)
+Sarah Lutteropp   (KIT and HITS)
+Nick Pattengale   (Sandia)
+Wayne Pfeiffer    (SDSC)
+Akifumi S. Tanabe (NRIFS)
+Charlie Taylor    (UF)
+
+
+Alignment has 13407 distinct alignment patterns
+
+Proportion of gaps and completely undetermined characters in this alignment: 0.00%
+
+RAxML rapid hill-climbing mode
+
+Using 1 distinct models/data partitions with joint branch length optimization
+
+
+Executing 1 inferences on the original alignment using 1 distinct randomized MP trees
+
+All free model parameters will be estimated by RAxML
+ML estimate of 25 per site rate categories
+
+Likelihood of final tree will be evaluated and optimized under GAMMA
+
+GAMMA Model parameters will be estimated up to an accuracy of 0.1000000000 Log Likelihood units
+
+Partition: 0
+Alignment Patterns: 13407
+Name: No Name Provided
+DataType: BINARY/MORPHOLOGICAL
+Substitution Matrix: Uncorrected
+
+
+
+
+RAxML was called as follows:
+
+/home/users/allstaff/tonkin-hill.g/DBLalpha/third_party/standard-RAxML-8.2.8/raxmlHPC-PTHREADS -m BINCAT -p 12345 -s DBLa_binary.fasta -n raxmlTree_T1 -T 20 
+
+
+Partition: 0 with name: No Name Provided
+Base frequencies: 0.995 0.005 
+
+Inference[0]: Time 25729.750015 CAT-based likelihood -393987.351047, best rearrangement setting 25
+alpha[0]: 1.000000 
+
+
+Conducting final model optimizations on all 1 trees under GAMMA-based models ....
+
+Inference[0] final GAMMA-based Likelihood: -398843.833658 tree written to file /wehisan/home/allstaff/t/tonkin-hill.g/global_var_manuscript/processed_data/RAxML_result.raxmlTree_T1
+
+
+Starting final GAMMA-based thorough Optimization on tree 0 likelihood -398843.833658 .... 
+
+Final GAMMA-based Score of best tree -398626.942251
+
+Program execution info written to /wehisan/home/allstaff/t/tonkin-hill.g/global_var_manuscript/processed_data/RAxML_info.raxmlTree_T1
+Best-scoring ML tree written to: /wehisan/home/allstaff/t/tonkin-hill.g/global_var_manuscript/processed_data/RAxML_bestTree.raxmlTree_T1
+
+Overall execution time: 26130.490538 secs or 7.258470 hours or 0.302436 days
+
