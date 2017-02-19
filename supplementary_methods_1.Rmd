@@ -240,7 +240,13 @@ majorTypeMatrix <- majorTypeMatrix[, match(col_annotations$Isolate, colnames(maj
 col_annotations$Isolate <- NULL
 pheatmap(majorTypeMatrix, cluster_cols = FALSE
          , annotation_col = col_annotations
-         , show_rownames = FALSE)
+         , show_rownames = FALSE
+         , show_colnames = FALSE)
+
+t <- majorTypeMatrix
+colnames(t) <- col_annotations$Country[match(colnames(majorTypeMatrix),rownames(col_annotations))]
+
+
 
 write.table(rownames(majorTypeMatrix), file="./processed_data/majorTypesGE50.txt"
             , quote = FALSE
