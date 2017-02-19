@@ -85,7 +85,7 @@ otuMatrix <- as.matrix(otuTable[,2:ncol(otuTable)])
 rownames(otuMatrix) <- otuTable$`#OTU ID`
 ```
 
-We found a total of `r sum(otuMatrix)` reads in the combined dataset, which clustered into a total of `r nrow(otuMatrix)`
+We found a total of `r sum(otuMatrix)` reads in the combined dataset, which clustered into a total of `r nrow(otuMatrix)`. Of these `r sum(rowSums(otuMatrix)==1)` were only seen in one isolate.
 
 
 We next perform some filtering. We exclude the lab isolates and only investigate isolates that were found to have more than 20 DBLa types. This was found to be a sensible thresholf on having adequetly sequences an isolates VAR repetoir. Furthermore as we are interested in the realtionship between isolates we exclude the singletons from the binary analysis.
