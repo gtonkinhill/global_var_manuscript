@@ -259,16 +259,16 @@ annotation_row$Countries <- unlist(lapply(str_split(str_to_lower(paste(annotatio
                , pattern = ";")
                , function(x){paste(unique(x), collapse = ";")}) )
 annotation_row <- annotation_row[match(rownames(majorTypeMatrix), annotation_row$SeqID),]
-rownames(majorTypeMatrix) <- paste(annotation_row$shortID, annotation_df$Countries, sep="-")
+rownames(majorTypeMatrix) <- paste(annotation_row$shortID, annotation_row$Countries, sep="-")
 annotation_row <- data.frame(row.names = rownames(majorTypeMatrix),
                              Annotation = annotation_row$Annotation,
                              stringsAsFactors = FALSE)
 
 # Specify colors
 ann_colors = list(
-    Country = c(Peru="#a6cee3", Gabon="#1f78b4", Colombia="#b2df8a",
-                FrenchGuiana="#33a02c", Iran="#fb9a99",
-                Thailand="#e31a1c", Ghana="#fdbf6f", PNG="#ff7f00",
+    Country = c(Peru="#e31a1c", Gabon="#b2df8a", Colombia="#a6cee3",
+                FrenchGuiana="#1f78b4", Iran="#fb9a99",
+                Thailand="#ff7f00", Ghana="#33a02c", PNG="#fdbf6f",
                 Uganda="#cab2d6", Venezuela="#6a3d9a"),
     Annotation = c(none = "#66c2a5", pseudo = "#8da0cb"
                    , pseudo_var1csa = "#fc8d62", pseudo_var3="#e78ac3"
