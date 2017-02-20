@@ -226,9 +226,10 @@ pheatmap(majorTypeMatrix, cluster_cols = FALSE
          , show_rownames = FALSE)
 ```
 
-There are also a number of types that are very conserved. We now look closer at those seen more than 50 times. We first BLAST the resulting 100 most conserved sequences again NCBI BLAST nucleotide database and manually curate the hits with additional information after filtering based on a pairwise identity of 96% and a coverage threshold of 95%. Additionally we BLAST against the var1, var2csa and var3 gene references from Rask et al.
+There are also a number of types that are very conserved. We now look closer at those seen more than 50 times. We first BLAST the resulting 100 most conserved sequences again NCBI BLAST nucleotide database and manually curate the hits with additional information after filtering based on a pairwise identity of 96% and a coverage threshold of 95%. Additionally we BLAST (megablast 2.2.18) against the var1, var2csa and var3 gene references from Rask et al.
 ```{bash, eval=FALSE}
-
+makeblastdb -dbtype nucl -in ./data/var123_rask2010.fasta -out ./processed_data/blastdb_var123
+megablast -m 8 -e 10 -i ./processed_data/majorTypesGE50.fasta -o ./processed_data/blast_var123_vs_majorTyepGE50.txt -d ./processed_data/blastdb_var123
 ```
 
 
