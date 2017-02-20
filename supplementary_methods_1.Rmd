@@ -226,7 +226,12 @@ pheatmap(majorTypeMatrix, cluster_cols = FALSE
          , show_rownames = FALSE)
 ```
 
-There are also a number of types that are very conserved. We now look closer at those seen more than 50 times
+There are also a number of types that are very conserved. We now look closer at those seen more than 50 times. We first BLAST the resulting 100 most conserved sequences again NCBI BLAST nucleotide database and manually curate the hits with additional information after filtering based on a pairwise identity of 96% and a coverage threshold of 95%. Additionally we BLAST against the var1, var2csa and var3 gene references from Rask et al.
+```{bash, eval=FALSE}
+
+```
+
+
 ```{r}
 majorTypeMatrix <- otuMatrixNoLab[rowSums(otuMatrixNoLab)>=50,]
 
