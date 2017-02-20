@@ -177,6 +177,7 @@ Lets investigate the jump log-likelihoods
 ```{r}
 library(data.table)
 library(ggplot2)
+library(boot)
 
 llk <- read.table("./mosaic_data/jump_llk.csv"
                   , sep=",", header = FALSE, fill = TRUE)

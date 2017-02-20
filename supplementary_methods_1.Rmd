@@ -28,6 +28,8 @@ library(starmie)
 library(ggtree)
 library(ape)
 library(pheatmap)
+library(proxy)
+library(stringr)
 
 cols <- c("#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99","#e31a1c","#fdbf6f","#ff7f00","#cab2d6","#6a3d9a","#ffff99","#b15928","#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#b3de69","#fccde5","#d9d9d9","#bc80bd","#ccebc5","#ffed6f")
 ```
@@ -227,7 +229,14 @@ pheatmap(majorTypeMatrix, cluster_cols = FALSE
 There are also a number of types that are very conserved. We now look closer at those seen more than 50 times
 ```{r}
 majorTypeMatrix <- otuMatrixNoLab[rowSums(otuMatrixNoLab)>=50,]
-dim(majorTypeMatrix)
+
+#Use diametric distance as described in xx
+diametric_dist <- function(x,y){
+  1-cor(x, y, method="pearson")^2
+}
+distMatrix <- proxy::dist(majorTypeMatrix, diametric_dist)
+
+#We now perform some messy manipulations to annotate the heatmap.
 col_annotations <- data.frame(Isolate = colnames(majorTypeMatrix),
                               stringsAsFactors = FALSE)
 col_annotations <- merge(col_annotations, isolateInformation,
@@ -235,18 +244,44 @@ col_annotations <- merge(col_annotations, isolateInformation,
                          all.x=TRUE)
 rownames(col_annotations) <- col_annotations$Isolate
 col_annotations <- col_annotations[, c("Isolate","Country")]
-col_annotations <- col_annotations[order(col_annotations$Country),]
+sort_order <- c("Uganda","Ghana","Gabon","Iran","Thailand","PNG","Peru","FrenchGuiana","Colombia","Venezuela")
+col_annotations <- col_annotations[order(match(col_annotations$Country,sort_order)),]
 majorTypeMatrix <- majorTypeMatrix[, match(col_annotations$Isolate, colnames(majorTypeMatrix))]
 col_annotations$Isolate <- NULL
+
+#Load manually curated annotation data
+annotation_row <- fread("./processed_data/blast_hits_g50_summary_for_heatmap.txt",
+                       data.table = FALSE,
+                       sep="\t",
+                       header=TRUE)
+annotation_row$Countries <- unlist(lapply(str_split(str_to_lower(paste(annotation_row$Countries_binary
+                , annotation_row$Countries_blast, sep=";"))
+               , pattern = ";")
+               , function(x){paste(unique(x), collapse = ";")}) )
+annotation_row <- annotation_row[match(rownames(majorTypeMatrix), annotation_row$SeqID),]
+rownames(majorTypeMatrix) <- paste(annotation_row$shortID, annotation_df$Countries, sep="-")
+annotation_row <- data.frame(row.names = rownames(majorTypeMatrix),
+                             Annotation = annotation_row$Annotation,
+                             stringsAsFactors = FALSE)
+
+# Specify colors
+ann_colors = list(
+    Country = c(Peru="#a6cee3", Gabon="#1f78b4", Colombia="#b2df8a",
+                FrenchGuiana="#33a02c", Iran="#fb9a99",
+                Thailand="#e31a1c", Ghana="#fdbf6f", PNG="#ff7f00",
+                Uganda="#cab2d6", Venezuela="#6a3d9a"),
+    Annotation = c(none = "#66c2a5", pseudo = "#8da0cb"
+                   , pseudo_var1csa = "#fc8d62", pseudo_var3="#e78ac3"
+                   , var5="#a6d854")
+)
 pheatmap(majorTypeMatrix, cluster_cols = FALSE
+         , clustering_distance_rows=distMatrix
          , annotation_col = col_annotations
-         , show_rownames = FALSE
-         , show_colnames = FALSE)
-
-t <- majorTypeMatrix
-colnames(t) <- col_annotations$Country[match(colnames(majorTypeMatrix),rownames(col_annotations))]
-
-
+         , annotation_row = annotation_row
+         , show_rownames = TRUE
+         , fontsize_row=2
+         , show_colnames = FALSE
+         , annotation_colors=ann_colors)
 
 write.table(rownames(majorTypeMatrix), file="./processed_data/majorTypesGE50.txt"
             , quote = FALSE
