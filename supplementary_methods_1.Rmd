@@ -322,7 +322,7 @@ admixOut <- data.frame(family=rownames(otuMatrixNoLab_t),
                        maternalId=rep(0, nrow(otuMatrixNoLab_t)),
                        sex=rep(0, nrow(otuMatrixNoLab_t)),
                        phenotype=rep(-9, nrow(otuMatrixNoLab_t)))
-admixOut <- cbind(admixOut, apply(otuMatrixNoLab_t, 2, function(x) x+1))
+admixOut <- cbind(admixOut, apply(otuMatrixNoLab_t, 2, function(x) 2*x))
 write.table(admixOut, file="./processed_data/admixture_input.ped"
             , quote=FALSE, sep=" "
             , row.names = FALSE, col.names=FALSE)
@@ -513,7 +513,7 @@ entropy <- fread("./processed_data/ffp_entropy_profile.txt",
 plot(entropy)
 
 #Save a list of the isolates with at least 20 types.
-write.table(rownames(otuMatrixNoLab), file="./processed_data/keep_types.txt"
+write.table(colnames(otuMatrixNoLab), file="./ffp_data/keep_isolates.txt"
             , quote = FALSE, sep=",", col.names = FALSE, row.names = FALSE)
 ```
 
@@ -529,13 +529,21 @@ esl-reformat fasta ./ffp_data/hmmalign_dbla_combined_all_454_noPOR_VS_combined_4
 
 We now want to get the set of sequences (excluding the labratory isolates) from which to cluster.
 ```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+keep=set()
+for line in open("./ffp_data/keep_isolates.txt", 'rU'):
+  keep.add(line.strip())
 
+with open("./ffp_data/combined_454_tessema_trimmed_keepIsos.fasta", 'w') as outfile:
+  for h,s in FastaReader("./ffp_data/combined_454_tessema_trimmed.fasta"):
+    if h.split(".")[0] in keep:
+      outfile.write(">"+h+"\n"+s+"\n")
 ```
 
 
 We can now run a script to calculate the ffp distance matrix. The original ffp script from xxx generated segment faults when we attempted to use it.
 ```{bash, eval=FALSE}
-python ./scripts/ffp.py --kmer_length 20 --out ./processed_data/ffp_distance_matrix.phylip --seq ./processed_data/combined_454_tessema.fas --verbose
+python ./scripts/ffp.py --kmer_length 20 --out ./processed_data/ffp_distance_matrix.phylip --seq ./ffp_data/combined_454_tessema_trimmed_keepIsos.fasta --verbose
 ```
 
 Finally a tree was built using fastme v2.1.4 with default parameters in interactive mode. We can now have a look at the resulting tree.
