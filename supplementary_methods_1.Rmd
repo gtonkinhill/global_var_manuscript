@@ -456,6 +456,93 @@ gg <- gg + scale_color_manual(values=cols,
 gg
 ```
 
+##Alignment free comparison with FFP
+
+First we need to split the sequences into seperate fasta files for each isolate
+```{bash, eval=FALSE}
+mkdir ffp_data
+cd ffp_data
+cp ../processed_data/combined_454_tessema.fas ./
+cd ..
+```
+
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+from collections import defaultdict
+
+isolates = defaultdict(list)
+
+for h,s in FastaReader("./processed_data/combined_454_tessema.fas"):
+  isolates[h.split(".")[0]].append((h,s))
+
+for iso in isolates:
+  with open("./processed_data/"+iso+".fasta",'w') as outfile:
+    for s in isolates[iso]:
+      outfile.write(">"+s[0]+"\n"+s[1]+"\n")
+```
+
+We would now like to decide on an appropriate choice for the l-mer length. To investigate this we use the centroids after clustering the 3D7 isolate reads as a reference.
+```{bash, eval=FALSE}
+cd ffp_data
+python ../scripts/clusterDBLa.py -o ./ -r 3D7.fasta
+
+#Construct a word usage (vocabulary) profile
+ffpvprof -e 40 -f 2 3D7_renamed_centroids.fasta > ../processed_data/ffp_word_usage.txt
+
+#Construct a relative entropy profile
+ffpreprof -e 40 3D7_renamed_centroids.fasta > ../processed_data/ffp_entropy_profile.txt
+
+#We no longer need the lab isolates and can remove them
+rm *3D7*.fasta
+rm *DD2*.fasta
+rm *HB3*.fasta
+
+cd ..
+```
+
+We can now attempt to choose an appropriate value of l. First let look at word usage to get an idea of a lower bound.
+```{r}
+word_usage <- fread("./processed_data/ffp_word_usage.txt",
+                    data.table = FALSE)
+plot(word_usage)
+```
+
+```{r}
+entropy <- fread("./processed_data/ffp_entropy_profile.txt",
+                    data.table = FALSE)
+plot(entropy)
+```
+
+Thus a choice of l=20 appears to be appropriate.
+
+We now want to get the set of sequences (excluding the labratory isolates) from which to cluster. We borrow those set up for the jumping HMM analysis (see supplementary_methods_2).
+
+We can now run a script to calculate the ffp distance matrix. The original ffp script from xxx generated segment faults when we attempted to use it.
+```{bash, eval=FALSE}
+python ./scripts/ffp.py --kmer_length 20 --out ./processed_data/ffp_distance_matrix.phylip --seq ./processed_data/combined_454_tessema.fas --verbose
+```
+
+Finally a tree was built using fastme v2.1.4 with default parameters in interactive mode. We can now have a look at the resulting tree.
+
+```{r}
+ffp <- read.tree("./processed_data/ffp_distance_matrix.phylip_fastme_tree.txt")
+
+isolateInformation$Country[isolateInformation$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")] <- "Lab"
+groupInfo <- isolateInformation %>% group_by(Country) %>%
+  do(taxa_list = .$Isolate)
+# groupInfo <- groupInfo[!(groupInfo$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
+
+groups <- lapply(groupInfo$taxa_list, as.vector)
+names(groups) <- groupInfo$Country
+ffp <- groupOTU(ffp, groups)
+
+gg <- ggtree(ffp, aes(color=group, label=node)
+             , size=0.3, branch.length = "none", layout="circular")
+gg <- gg + scale_color_manual(values=cols,
+                              labels=names(groups)) +
+  theme(legend.position="right")
+gg
+```
 
 
 
