@@ -213,6 +213,14 @@ We can now run the full model in an all vs all fashion
 
 ```
 
+Now calculate the proportions
+```{bash, eval=FALSE}
+mkdir ./mosaic_processed_data/proportions
+python ./scripts/calculate_expected_proportions.py --otu ./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt --map ./mosaic_processed_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta_mapping.txt --out ./mosaic_processed_data/proportions/prop_Col1.txt --pos ./mosaic_processed_data/results_full/*post.txt --verbose --isolate Col1
+```
+
+
+##Ape parasite
 It is also interesting to look out how the Ape reichenowi isolate from Larremore et al looks.
 First we need to reformat the reichenowi sequences.
 ```{python, eval=FALSE}
@@ -269,14 +277,14 @@ cat ./mosaic_data/Protein_recheniwoi_from_larremore_renamed.fasta ./mosaic_data/
 from mungo.fasta import FastaReader
 
 with open("./mosaic_processed_data/ape_data/combined_ape_454_renamedForMosaic.fasta", 'w') as outfile:
-  with open("./mosaic_processed_data/ape_data/combined_ape_454_mapping.fasta", 'w') as mapping:
+  with open("./mosaic_processed_data/ape_data/combined_ape_454_mapping.txt", 'w') as mapping:
     count=1
     for h,s in FastaReader("./mosaic_processed_data/ape_data/combined_ape_454.fasta"):
       if "SYpttt15" in h:
         outfile.write(">target_seq"+str(count)+"\n" +s+"\n")
       else:
         outfile.write(">db_seq"+str(count)+"\n" +s+"\n")
-      mapping.write("seq"+str(count)+","+h+"\n")
+      mapping.write("seq"+str(count)+"\t"+h.split()[0]+"\n")
       count+=1
 ```
 
@@ -291,7 +299,86 @@ cd ../..
 
 To run the proportion script we need to add the Reichenowi isolates into the binary matrix.
 ```{r}
-binary_df <- fread("/mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt"
+library(data.table)
+library(stringr)
+library(readr)
+binary_df <- fread("./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt"
       , data.table = FALSE
       , header = TRUE)
+lines <- read_lines("./processed_data/recheniwoi_from_larremore_renamed.fasta")
+lines <- lines[grepl("^>", lines)]
+lines <- str_replace(lines, ">", "")
+
+t <- cbind(lines, matrix(0, length(lines), ncol(binary_df)-1))
+colnames(t) <- colnames(binary_df)
+binary_df <- rbind(binary_df, t, stringsAsFactors=FALSE)
+binary_df$SYpttt15 <- c(rep(0, nrow(binary_df)-length(lines)), rep(1, length(lines)))
+write.table(binary_df, file="./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary_withApe.txt"
+            , quote = FALSE, row.names = FALSE
+            , col.names = TRUE, sep="\t")
+
+```
+
+```{bash, eval=FALSE}
+python ./scripts/calculate_expected_proportions.py --otu ./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary_withApe.txt --map ./mosaic_processed_data/ape_data/combined_ape_454_mapping.txt --out ./mosaic_processed_data/ape_data/mixture_ape.txt --pos ./mosaic_processed_data/ape_data/combined_ape_454_renamedForMosaic_post.txt --verbose --isolate SYpttt15
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+isolateInformation <- fread("./data/isolate_information.csv"
+                            , header=TRUE
+                            , data.table = FALSE)
+#Add in country information
+isolateInformation$Country <- unlist(lapply(isolateInformation$Location
+                                            , function(x) {
+                                              str_split(x,  "_", n=2)[[1]][[1]]}))
+
+#Remove duplicate entries of isolates that have been sequenced more than once
+isolateInformation <- isolateInformation[!duplicated(isolateInformation$Isolate),]
+isolateInformation <- isolateInformation[,c("Isolate", "Country")]
+isolateInformation <- rbind(isolateInformation, data.frame(Isolate="SYpttt15", Country = "Ape"))
+
+#Proportion file
+proportion <- fread("./mosaic_processed_data/ape_data/mixture_ape.txt", data.table = FALSE)
+colnames(proportion) <- c("Target", "Reference", "Proportion")
+
+prop_merge <- merge(proportion, isolateInformation, by.x="Reference", by.y = "Isolate", all.x=TRUE)
+
+summ_location <- prop_merge %>% group_by(Country) %>%
+  summarise(
+    num.isolates = n(),
+    sum.prop = sum(Proportion),
+    avg.proportion = mean(Proportion)
+  )
+
+summ_location$reWeighted <- summ_location$avg.proportion/sum(summ_location$avg.proportion)
+
+summ_location$Country <- factor(summ_location$Country
+                                       , levels = c("Ape", "Uganda", "Ghana", "Gabon", "Iran", "Thailand", "PNG", "Peru", "FrenchGuiana", "Venezuela", "Colombia"))
+gg <- ggplot(summ_location, aes(x=Country, y=reWeighted, fill=Country))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
+```
+
+Now to ignore the alignment to itself
+```{r}
+summ_location <- prop_merge %>% group_by(Country) %>%
+  summarise(
+    num.isolates = n(),
+    sum.prop = sum(Proportion),
+    avg.proportion = mean(Proportion)
+  )
+
+summ_location <- summ_location[summ_location$Country!="Ape",]
+summ_location$reWeighted <- summ_location$avg.proportion/sum(summ_location$avg.proportion)
+
+summ_location$Country <- factor(summ_location$Country
+                                       , levels = c("Uganda", "Ghana", "Gabon", "Iran", "Thailand", "PNG", "Peru", "FrenchGuiana", "Venezuela", "Colombia"))
+gg <- ggplot(summ_location, aes(x=Country, y=reWeighted, fill=Country))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
 ```
