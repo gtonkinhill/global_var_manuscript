@@ -122,9 +122,6 @@ def main():
     , help="location of output file."
     , required=True)
 
-  # parser.add_argument('--cpu', dest='cpu', type=int, default=1
-  #   , help="number of cpus to use. (default=1)")
-
   parser.add_argument('--pos', nargs='+'
     , dest='pos_files'
     , help='location of posterior files from Mosaic run.')

@@ -207,3 +207,91 @@ ggplot(llk_df, aes(x=jump, y=llk, group=1)) +
 
 rownames(llk_matrix)[which.max(rowSums(llk_matrix, na.rm = TRUE))]
 ```
+
+We can now run the full model in an all vs all fashion
+```{bash, eval=FALSE}
+
+```
+
+It is also interesting to look out how the Ape reichenowi isolate from Larremore et al looks.
+First we need to reformat the reichenowi sequences.
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+from mungo.sequence import sixFrameTranslation
+import os, sys
+from collections import defaultdict
+
+with open("./processed_data/recheniwoi_from_larremore_renamed.fasta", 'w') as outfile:
+  for h,s in FastaReader("./data/all_recheniwoi_from_larremore.fasta"):
+    h=h.replace(",","")
+    h="_".join(h.split())
+    outfile.write(">SYpttt15." + h + "\n" + s + "\n")
+
+num_stops = 0
+seqCount = 0
+badSeqs = 0
+bad_lengths = []
+
+inputfile = "./processed_data/recheniwoi_from_larremore_renamed.fasta"
+output_file = "./mosaic_data/Protein_recheniwoi_from_larremore_renamed.fasta"
+
+with open(output_file + "_BadSeqs", 'w') as badfile:
+  with open(output_file, 'w') as outfile:
+    for h,s in FastaReader(inputfile):
+      stops = 9999
+      translation = sixFrameTranslation(s)
+      for frame in translation:
+        st = translation[frame].count('*')
+        if st < stops:
+          best = frame
+          stops = st
+      if stops <= num_stops:
+        outfile.write(">" + h + " frame_" + str(best) + "\n")
+        outfile.write(translation[best] + "\n")
+      else:
+        badSeqs += 1
+        bad_lengths.append(len(s))
+        badfile.write(">" + h + "\n")
+        badfile.write(s + "\n")
+      seqCount += 1
+
+print (str((100.0*badSeqs)/seqCount) + "percent or "
+  + str(badSeqs) + " out of " + str(seqCount) + " were not translated.")
+```
+
+Conveniently these sequences cover the same region as our protein alignment and thus no trimming is required. We now want to search them against themselves and all other global genes. First we need to create a sequence file to perfrom the search.
+```{bash, eval=FALSE}
+mkdir ./mosaic_processed_data/ape_data/
+cat ./mosaic_data/Protein_recheniwoi_from_larremore_renamed.fasta ./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta > ./mosaic_processed_data/ape_data/combined_ape_454.fasta
+```
+
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+
+with open("./mosaic_processed_data/ape_data/combined_ape_454_renamedForMosaic.fasta", 'w') as outfile:
+  with open("./mosaic_processed_data/ape_data/combined_ape_454_mapping.fasta", 'w') as mapping:
+    count=1
+    for h,s in FastaReader("./mosaic_processed_data/ape_data/combined_ape_454.fasta"):
+      if "SYpttt15" in h:
+        outfile.write(">target_seq"+str(count)+"\n" +s+"\n")
+      else:
+        outfile.write(">db_seq"+str(count)+"\n" +s+"\n")
+      mapping.write("seq"+str(count)+","+h+"\n")
+      count+=1
+```
+
+Now run mosaic
+```{bash, eval=FALSE}
+cd ./mosaic_processed_data/ape_data/
+seq="combined_ape_454_renamedForMosaic.fasta"
+fasta="combined_ape_454_renamedForMosaic"
+nohup /home/users/allstaff/tonkin-hill.g/global_var_manuscript/mosaic/mosaic -ma -seq $seq -aa -tag $fasta -group 2 db target -target target -del 0.0166765773591 -eps 0.273305573191 -rec 0.014 > ${fasta}_output.log &
+cd ../..
+```
+
+To run the proportion script we need to add the Reichenowi isolates into the binary matrix.
+```{r}
+binary_df <- fread("/mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt"
+      , data.table = FALSE
+      , header = TRUE)
+```

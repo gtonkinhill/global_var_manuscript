@@ -377,7 +377,7 @@ It is also worth taking a look at the K from 1 to 10
 plotMultiK(admix[order(unlist(lapply(admix,getK)))], populations)
 ```
 
-The small dip in the cross-validation error at K=6 appears to correspond with Admixture infering different hidden populations for the three African countries. At K=6 Iran is also distinct. For all K PNG does is not seperated from the African background cluster. This could be because of the different experimental method used in obtaining the PNG isolates.
+The small dip in the cross-validation error at K=6x appears to correspond with Admixture infering different hidden populations for the three African countries. For all K PNG does is not seperated from the African background cluster. This could be because of the different experimental method used in obtaining the PNG isolates.
 
 We now take a closer look at the model with 6 underlying populations.
 ```{r}
@@ -506,6 +506,7 @@ We can now attempt to choose an appropriate value of l. First let look at word u
 ```{r}
 word_usage <- fread("./processed_data/ffp_word_usage.txt",
                     data.table = FALSE)
+word_usage$V1[which.max(word_usage$V2)]
 plot(word_usage)
 ```
 
@@ -553,10 +554,9 @@ Finally a tree was built using fastme v2.1.4 with default parameters in interact
 ```{r}
 ffp <- read.tree("./processed_data/ffp_distance_matrix.phylip_fastme_tree.txt")
 
-isolateInformation$Country[isolateInformation$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")] <- "Lab"
 groupInfo <- isolateInformation %>% group_by(Country) %>%
   do(taxa_list = .$Isolate)
-# groupInfo <- groupInfo[!(groupInfo$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
+groupInfo <- groupInfo[!(groupInfo$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
 
 groups <- lapply(groupInfo$taxa_list, as.vector)
 names(groups) <- groupInfo$Country
