@@ -7,17 +7,38 @@ import glob
 
 def loadMappingFile(mapfile, verbose):
   mapping_dict = {}
+  read_to_short_dict = {}
   if verbose:
     print "loading mapping file...", mapfile
   with open(mapfile, 'rU') as infile:
     for line in infile:
       line=line.strip()
-      map = line.split(";size")[0]
-      map = map.split(";sample")[0]
-      map = map.split()[-1]
-      mapping_dict[line.split()[0]] = map
+      map_ = line.split(";size")[0]
+      map_ = map_.split(";sample")[0]
+      map_ = map_.split()[-1]
+      mapping_dict[line.split()[0]] = map_
+      read_to_short_dict[map_] = line.split()[0]
 
-  return mapping_dict
+  return mapping_dict, read_to_short_dict
+
+def splitPosteriors(filenames, temp_dir, verbose):
+  #Split post files up to make things more efficient.
+  for f in filenames:
+    split_dict=defaultdict(list)
+    if verbose:
+      print "splitting...", f
+    with open(f, 'rU') as infile:
+      for t in range(5): #Skip header
+        next(infile)
+      for line in infile:
+        target = line.split(",")[0]
+        split_dict[target].append(line)
+    for target in split_dict:
+      with open(temp_dir + target + "_postSplit.txt", 'w') as outfile:
+        for line in split_dict[target]:
+          outfile.write(line)
+
+  return
 
 def loadPosteriors(filenames, mapping_dict, isolate, iso_to_reads, verbose):
 
@@ -32,8 +53,8 @@ def loadPosteriors(filenames, mapping_dict, isolate, iso_to_reads, verbose):
     if verbose:
       print "Loading...", f
     with open(f, 'rU') as infile:
-      for t in range(5): #Skip header
-        next(infile)
+      # for t in range(5): #Skip header
+      #   next(infile)
       for line in infile:
         line = line.strip().split(",")
         #Now rename using mapping file
@@ -122,6 +143,10 @@ def main():
     , help="location of output file."
     , required=True)
 
+  parser.add_argument('--temp_dir', dest='temp_dir'
+    , help="location of temporary directory to store seperated files."
+    , required=True)
+
   parser.add_argument('--pos', nargs='+'
     , dest='pos_files'
     , help='location of posterior files from Mosaic run.')
@@ -140,16 +165,24 @@ def main():
   args.outputfile = os.path.abspath(args.outputfile)
   args.mapfile = os.path.abspath(args.mapfile)
   args.otufile = os.path.abspath(args.otufile)
+  args.temp_dir = os.path.abspath(args.temp_dir) + "/"
+
   pos_files = []
-  print args.pos_files
   for i,f in enumerate(args.pos_files):
     args.pos_files[i] = os.path.abspath(f)
 
-  mapping_dict = loadMappingFile(args.mapfile, args.verbose)
+  mapping_dict, read_to_short_dict = loadMappingFile(args.mapfile, args.verbose)
 
   num_isolates_per_read, iso_to_reads = loadOtuMatrix(args.otufile, args.verbose)
 
-  seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(args.pos_files
+  if len(glob.glob("*_postSplit.txt"))<1:
+    splitPosteriors(args.pos_files, args.temp_dir, args.verbose)
+
+  isolate_pos_files = []
+  for read in iso_to_reads[args.isolate]:
+    isolate_pos_files.append(args.temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
+
+  seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
     , mapping_dict, args.isolate, iso_to_reads, args.verbose)
 
   proportions = calculateProportion(seq_lengths, hmm_posterior
