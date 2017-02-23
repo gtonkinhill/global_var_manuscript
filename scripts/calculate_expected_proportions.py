@@ -31,7 +31,7 @@ def splitPosteriors(filenames, temp_dir, verbose):
       for t in range(5): #Skip header
         next(infile)
       for line in infile:
-        target = line.split(",")[0]
+        target = line.split(",")[0].split("_")[1]
         split_dict[target].append(line)
     for target in split_dict:
       with open(temp_dir + target + "_postSplit.txt", 'w') as outfile:
