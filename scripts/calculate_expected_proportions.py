@@ -166,7 +166,7 @@ def main():
   args = parser.parse_args()
 
   #get full path names
-  args.outputdir = os.path.abspath(args.outputdir)
+  args.outputdir = os.path.abspath(args.outputdir) + "/"
   args.mapfile = os.path.abspath(args.mapfile)
   args.otufile = os.path.abspath(args.otufile)
   args.temp_dir = os.path.abspath(args.temp_dir) + "/"
