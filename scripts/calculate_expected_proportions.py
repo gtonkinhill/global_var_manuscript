@@ -139,8 +139,8 @@ def main():
     , help="location of map file, to map the sequence names in mosaic to those in the otu matrix."
     , required=True)
 
-  parser.add_argument('--out', dest='outputfile'
-    , help="location of output file."
+  parser.add_argument('--out_dir', dest='outputdir'
+    , help="location of output directory."
     , required=True)
 
   parser.add_argument('--temp_dir', dest='temp_dir'
@@ -156,13 +156,17 @@ def main():
     , help='print verbose output (default=False)')
 
   parser.add_argument('--isolate', dest='isolate'
-    , required=True
+    , default=""
+    , help='isolate to infer mixture on.')
+
+  parser.add_argument('--compute_all', dest='compute_all', action='store_true'
+    , default=False
     , help='isolate to infer mixture on.')
 
   args = parser.parse_args()
 
   #get full path names
-  args.outputfile = os.path.abspath(args.outputfile)
+  args.outputdir = os.path.abspath(args.outputdir)
   args.mapfile = os.path.abspath(args.mapfile)
   args.otufile = os.path.abspath(args.otufile)
   args.temp_dir = os.path.abspath(args.temp_dir) + "/"
@@ -178,18 +182,37 @@ def main():
   if len(glob.glob(args.temp_dir + "*_postSplit.txt"))<1:
     splitPosteriors(args.pos_files, args.temp_dir, args.verbose)
 
-  isolate_pos_files = []
-  for read in iso_to_reads[args.isolate]:
-    isolate_pos_files.append(args.temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
+  if args.compute_all:
+    for iso in iso_to_reads:
+      args.isolate=iso
+      outputfile=args.outputdir + iso + "_proportions.txt"
 
-  seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
-    , mapping_dict, args.isolate, iso_to_reads, args.verbose)
+      isolate_pos_files = []
+      for read in iso_to_reads[args.isolate]:
+        isolate_pos_files.append(args.temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
 
-  proportions = calculateProportion(seq_lengths, hmm_posterior
-    , num_isolates_per_read, iso_to_reads
-    , args.isolate, args.verbose)
+      seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
+        , mapping_dict, args.isolate, iso_to_reads, args.verbose)
 
-  writeProportions(proportions, args.outputfile, args.verbose)
+      proportions = calculateProportion(seq_lengths, hmm_posterior
+        , num_isolates_per_read, iso_to_reads
+        , args.isolate, args.verbose)
+
+      writeProportions(proportions, outputfile, args.verbose)
+  else:
+    outputfile=args.outputdir + args.isolate + "_proportions.txt"
+    isolate_pos_files = []
+    for read in iso_to_reads[args.isolate]:
+      isolate_pos_files.append(args.temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
+
+    seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
+      , mapping_dict, args.isolate, iso_to_reads, args.verbose)
+
+    proportions = calculateProportion(seq_lengths, hmm_posterior
+      , num_isolates_per_read, iso_to_reads
+      , args.isolate, args.verbose)
+
+    writeProportions(proportions, outputfile, args.verbose)
 
 
   return
