@@ -175,7 +175,7 @@ def main():
 
   num_isolates_per_read, iso_to_reads = loadOtuMatrix(args.otufile, args.verbose)
 
-  if len(glob.glob("*_postSplit.txt"))<1:
+  if len(glob.glob(args.temp_dir + "*_postSplit.txt"))<1:
     splitPosteriors(args.pos_files, args.temp_dir, args.verbose)
 
   isolate_pos_files = []
