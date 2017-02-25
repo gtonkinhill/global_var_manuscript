@@ -4,6 +4,7 @@ from subprocess import check_call
 import numpy as np
 from collections import defaultdict
 import glob
+from joblib import Parallel, delayed
 
 def loadMappingFile(mapfile, verbose):
   mapping_dict = {}
@@ -125,7 +126,24 @@ def writeProportions(proportions, outputfile, verbose):
 
   return
 
+def calculateForEachRead(outputfile, isolate
+  , temp_dir, mapping_dict, read_to_short_dict
+  , num_isolates_per_read, iso_to_reads
+  , verbose):
+  isolate_pos_files = []
+  for read in iso_to_reads[isolate]:
+    isolate_pos_files.append(temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
 
+  seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
+    , mapping_dict, isolate, iso_to_reads, verbose)
+
+  proportions = calculateProportion(seq_lengths, hmm_posterior
+    , num_isolates_per_read, iso_to_reads
+    , isolate, verbose)
+
+  writeProportions(proportions, outputfile, verbose)
+
+  return
 
 def main():
 
@@ -163,6 +181,11 @@ def main():
     , default=False
     , help='isolate to infer mixture on.')
 
+  parser.add_argument('--cpu', dest='cpu'
+    , default=1
+    , type=int
+    , help='number of cpus.')
+
   args = parser.parse_args()
 
   #get full path names
@@ -183,37 +206,17 @@ def main():
     splitPosteriors(args.pos_files, args.temp_dir, args.verbose)
 
   if args.compute_all:
-    for iso in iso_to_reads:
-      args.isolate=iso
-      outputfile=args.outputdir + iso + "_proportions.txt"
-
-      isolate_pos_files = []
-      for read in iso_to_reads[args.isolate]:
-        isolate_pos_files.append(args.temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
-
-      seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
-        , mapping_dict, args.isolate, iso_to_reads, args.verbose)
-
-      proportions = calculateProportion(seq_lengths, hmm_posterior
-        , num_isolates_per_read, iso_to_reads
-        , args.isolate, args.verbose)
-
-      writeProportions(proportions, outputfile, args.verbose)
+    Parallel(n_jobs=args.cpu)(delayed(calculateForEachRead)(args.outputdir + iso + "_proportions.txt"
+      , iso
+      , args.temp_dir, mapping_dict, read_to_short_dict
+      , num_isolates_per_read, iso_to_reads
+      , args.verbose) for iso in iso_to_reads)
   else:
     outputfile=args.outputdir + args.isolate + "_proportions.txt"
-    isolate_pos_files = []
-    for read in iso_to_reads[args.isolate]:
-      isolate_pos_files.append(args.temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
-
-    seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
-      , mapping_dict, args.isolate, iso_to_reads, args.verbose)
-
-    proportions = calculateProportion(seq_lengths, hmm_posterior
+    calculateForEachRead(outputfile, iso
+      , args.temp_dir, mapping_dict, read_to_short_dict
       , num_isolates_per_read, iso_to_reads
-      , args.isolate, args.verbose)
-
-    writeProportions(proportions, outputfile, args.verbose)
-
+      , args.verbose)
 
   return
 
