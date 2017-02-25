@@ -214,9 +214,11 @@ We can now run the full model in an all vs all fashion
 ```
 
 Now calculate the proportions
+
 ```{bash, eval=FALSE}
 mkdir ./mosaic_processed_data/proportions
-python ./scripts/calculate_expected_proportions.py --otu ./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt --map ./mosaic_processed_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta_mapping.txt --out ./mosaic_processed_data/proportions/prop_Col1.txt --pos ./mosaic_processed_data/results_full/*post.txt --verbose --isolate Col1
+mkdir ./mosaic_processed_data/proportions/temp_files
+python ./scripts/calculate_expected_proportions.py --otu ./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt --map ./mosaic_processed_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta_mapping.txt --out_dir ./mosaic_processed_data/proportions/ --pos ./mosaic_processed_data/results_full/*post.txt --verbose --compute_all --temp_dir ./mosaic_processed_data/proportions/temp_files/
 ```
 
 
