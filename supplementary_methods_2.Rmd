@@ -221,6 +221,64 @@ mkdir ./mosaic_processed_data/proportions/temp_files
 python ./scripts/calculate_expected_proportions.py --otu ./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt --map ./mosaic_processed_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta_mapping.txt --out_dir ./mosaic_processed_data/proportions/ --pos ./mosaic_processed_data/results_full/*post.txt --verbose --compute_all --temp_dir ./mosaic_processed_data/proportions/temp_files/
 ```
 
+Load proportions
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+isolateInformation <- fread("./data/isolate_information.csv"
+                            , header=TRUE
+                            , data.table = FALSE)
+#Add in country information
+isolateInformation$Country <- unlist(lapply(isolateInformation$Location
+                                            , function(x) {
+                                              str_split(x,  "_", n=2)[[1]][[1]]}))
+
+#Remove duplicate entries of isolates that have been sequenced more than once
+isolateInformation <- isolateInformation[!duplicated(isolateInformation$Isolate),]
+isolateInformation <- isolateInformation[,c("Isolate", "Country")]
+
+#Proportion file
+prop_files <- Sys.glob("./mosaic_processed_data/proportions/*proportions.txt")
+avg_proportions <- data.frame()
+for (f in prop_files){
+
+  proportion <- fread(f, data.table = FALSE)
+  colnames(proportion) <- c("Target", "Reference", "Proportion")
+prop_merge <- merge(proportion, isolateInformation, by.x="Reference", by.y = "Isolate", all.x=TRUE)
+
+  sum_location <- prop_merge %>% group_by(Country) %>%
+    summarise(
+      num.isolates = n(),
+      sum.prop = sum(Proportion),
+      avg.proportion = mean(Proportion)
+    )
+
+  sum_location$reWeighted <- sum_location$avg.proportion/sum(
+    sum_location$avg.proportion)
+  sum_location$Country <- factor(sum_location$Country
+                                       , levels = c("Ape", "Uganda", "Ghana",
+                                                    "Gabon", "Iran", "Thailand",
+                                                    "PNG", "Peru", "FrenchGuiana",
+                                                    "Venezuela", "Colombia"))
+  iso <- gsub(".*proportions/","",f)
+  iso <- gsub("_proportions.txt","",iso)
+  sum_location$Isolate <- rep(iso, nrow(sum_location))
+  avg_proportions <- rbind(avg_proportions, sum_location)
+}
+
+colnames(isolateInformation) <- c("Isolate","Origin")
+avg_proportions <- merge(avg_proportions, isolateInformation, by.x="Isolate", by.y="Isolate", all.x=TRUE)
+
+gg <- ggplot(avg_proportions, aes(x=Isolate, y=reWeighted, fill=Country))
+gg <- gg + facet_grid(Country~Origin, scales = "free_x", space = "free_x")
+gg <- gg + coord_cartesian(ylim=c(0,1))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
+
+```
 
 ##Ape parasite
 It is also interesting to look out how the Ape reichenowi isolate from Larremore et al looks.
@@ -326,9 +384,6 @@ python ./scripts/calculate_expected_proportions.py --otu ./mosaic_data/DNA_NoLab
 ```
 
 ```{r}
-library(dplyr)
-library(ggplot2)
-
 isolateInformation <- fread("./data/isolate_information.csv"
                             , header=TRUE
                             , data.table = FALSE)
