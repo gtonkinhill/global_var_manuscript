@@ -54,8 +54,6 @@ def loadPosteriors(filenames, mapping_dict, isolate, iso_to_reads, verbose):
     if verbose:
       print "Loading...", f
     with open(f, 'rU') as infile:
-      # for t in range(5): #Skip header
-      #   next(infile)
       for line in infile:
         line = line.strip().split(",")
         #Now rename using mapping file

@@ -280,6 +280,81 @@ gg
 
 ```
 
+```{r}
+library(ggcorrplot)
+library(reshape2)
+summary_prop_table <- avg_proportions %>% group_by_(.dots=c("Origin","Country")) %>%
+  summarise(
+    mean_=mean(reWeighted),
+    sd=sd(reWeighted)
+  )
+d <- acast(summary_prop_table, Origin~Country, value.var="mean_")
+d <- d[c("Uganda", "Ghana","Gabon", "Iran", "Thailand","PNG", "Peru", "FrenchGuiana","Venezuela", "Colombia"),]
+d <- d[,rownames(d)]
+ggcorrplot(d, hc.order = TRUE, 
+   lab = TRUE)
+```
+
+
+Now plot without matching to themselves
+```{r}
+avg_proportions_noSelf <- avg_proportions[avg_proportions$Country!=avg_proportions$Origin,]
+
+gg <- ggplot(avg_proportions_noSelf, aes(x=Isolate, y=reWeighted, fill=Country))
+gg <- gg + facet_grid(Country~Origin, scales = "free_x", space = "free_x")
+gg <- gg + coord_cartesian(ylim=c(0,0.5))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
+```
+
+####FrenchGuiana
+```{r}
+avg_proportions_SA_toAfrica <- avg_proportions_noSelf[!(avg_proportions_noSelf$Country %in% c('FrenchGuiana','Colombia','Peru','Venezuela')),]
+avg_proportions_SA_toAfrica 
+gg <- ggplot(avg_proportions_SA_toAfrica[avg_proportions_SA_toAfrica$Origin=='FrenchGuiana',], aes(x=Isolate, y=reWeighted, fill=Country))
+gg <- gg + facet_grid(~Country)
+gg <- gg + coord_cartesian(ylim=c(0,0.025))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
+```
+
+####Peru
+```{r}
+avg_proportions_SA_toAfrica <- avg_proportions_noSelf[!(avg_proportions_noSelf$Country %in% c('FrenchGuiana','Colombia','Peru','Venezuela')),]
+avg_proportions_SA_toAfrica 
+gg <- ggplot(avg_proportions_SA_toAfrica[avg_proportions_SA_toAfrica$Origin=='Peru',], aes(x=Isolate, y=reWeighted, fill=Country))
+gg <- gg + facet_grid(~Country)
+gg <- gg + coord_cartesian(ylim=c(0,0.025))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
+```
+
+####Colombia
+```{r}
+avg_proportions_SA_toAfrica <- avg_proportions_noSelf[!(avg_proportions_noSelf$Country %in% c('FrenchGuiana','Colombia','Peru','Venezuela')),]
+avg_proportions_SA_toAfrica 
+gg <- ggplot(avg_proportions_SA_toAfrica[avg_proportions_SA_toAfrica$Origin=='Colombia',], aes(x=Isolate, y=reWeighted, fill=Country))
+gg <- gg + facet_grid(~Country)
+gg <- gg + coord_cartesian(ylim=c(0,0.015))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
+```
+
+####Venezuela
+```{r}
+avg_proportions_SA_toAfrica <- avg_proportions_noSelf[!(avg_proportions_noSelf$Country %in% c('FrenchGuiana','Colombia','Peru','Venezuela')),]
+avg_proportions_SA_toAfrica 
+gg <- ggplot(avg_proportions_SA_toAfrica[avg_proportions_SA_toAfrica$Origin=='Venezuela',], aes(x=Isolate, y=reWeighted, fill=Country))
+gg <- gg + facet_grid(~Country)
+gg <- gg + coord_cartesian(ylim=c(0,0.025))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
+```
 ##Ape parasite
 It is also interesting to look out how the Ape reichenowi isolate from Larremore et al looks.
 First we need to reformat the reichenowi sequences.
@@ -438,4 +513,14 @@ gg <- ggplot(summ_location, aes(x=Country, y=reWeighted, fill=Country))
 gg <- gg + geom_bar(stat = "identity")
 gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
 gg
+```
+
+##A closer investigation of South America
+We now look at how the South American isolates as a mixture of non-south American isolate sequences. This helps to look at genes that are conserved in a subset of SA countries which obscures the distances to the African ones.
+
+First lets load the binary matrix.
+```{r}
+binary_df <- fread("./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt"
+      , data.table = FALSE
+      , header = TRUE)
 ```
