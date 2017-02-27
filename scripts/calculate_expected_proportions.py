@@ -91,13 +91,14 @@ def loadOtuMatrix(otu_file, verbose):
   return num_isolates_per_read, iso_to_reads
 
 def calculateProportion(seq_lengths, hmm_posterior, num_isolates_per_read
-  , iso_to_reads, isolate, verbose):
+  , iso_to_reads, isolate, match_self, verbose):
   proportions = {}
 
   for isoA in iso_to_reads:
     if isolate!="" and isoA==isolate:
       for isoB in iso_to_reads:
-        # if isoA==isoB: continue
+        if not match_self:
+          if isoA==isoB: continue
         chunk_sum = 0
         seq_length = 0
         for rt in iso_to_reads[isoA]:
@@ -128,7 +129,7 @@ def writeProportions(proportions, outputfile, verbose):
 def calculateForEachRead(outputfile, isolate
   , temp_dir, mapping_dict, read_to_short_dict
   , num_isolates_per_read, iso_to_reads, seq_lengths
-  , verbose):
+  , match_self, verbose):
   isolate_pos_files = []
   for read in iso_to_reads[isolate]:
     if num_isolates_per_read[read]>1: continue #Dont need the posterior file
@@ -139,7 +140,7 @@ def calculateForEachRead(outputfile, isolate
 
   proportions = calculateProportion(seq_lengths, hmm_posterior
     , num_isolates_per_read, iso_to_reads
-    , isolate, verbose)
+    , isolate, match_self, verbose)
 
   writeProportions(proportions, outputfile, verbose)
 
@@ -195,6 +196,10 @@ def main():
     , default=False
     , help='isolate to infer mixture on.')
 
+  parser.add_argument('--no_match_self', dest='match_self', action='store_false'
+    , default=True
+    , help="don't match against an isolates own reads.")
+
   parser.add_argument('--cpu', dest='cpu'
     , default=1
     , type=int
@@ -226,13 +231,13 @@ def main():
       , iso
       , args.temp_dir, mapping_dict, read_to_short_dict
       , num_isolates_per_read, iso_to_reads, seq_lengths
-      , args.verbose) for iso in iso_to_reads)
+      , args.match_self, args.verbose) for iso in iso_to_reads)
   else:
     outputfile=args.outputdir + args.isolate + "_proportions.txt"
     calculateForEachRead(outputfile, args.isolate
       , args.temp_dir, mapping_dict, read_to_short_dict
       , num_isolates_per_read, iso_to_reads, seq_lengths
-      , args.verbose)
+      , args.match_self, args.verbose)
 
   return
 
