@@ -96,7 +96,7 @@ def calculateProportion(seq_lengths, hmm_posterior, num_isolates_per_read
   for isoA in iso_to_reads:
     if isolate!="" and isoA==isolate:
       for isoB in iso_to_reads:
-        if isoA==isoB: continue
+        # if isoA==isoB: continue
         chunk_sum = 0
         seq_length = 0
         for rt in iso_to_reads[isoA]:
@@ -130,6 +130,8 @@ def calculateForEachRead(outputfile, isolate
   , verbose):
   isolate_pos_files = []
   for read in iso_to_reads[isolate]:
+    if num_isolates_per_read[read]==1:
+      continue
     isolate_pos_files.append(temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
 
   seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
