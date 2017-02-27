@@ -218,7 +218,7 @@ Now calculate the proportions
 ```{bash, eval=FALSE}
 mkdir ./mosaic_processed_data/proportions
 mkdir ./mosaic_processed_data/proportions/temp_files
-python ./scripts/calculate_expected_proportions.py --otu ./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt --map ./mosaic_processed_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta_mapping.txt --out_dir ./mosaic_processed_data/proportions/ --pos ./mosaic_processed_data/results_full/*post.txt --verbose --compute_all --temp_dir ./mosaic_processed_data/proportions/temp_files/
+python ./scripts/calculate_expected_proportions.py --otu ./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt --map ./mosaic_processed_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta_mapping.txt --out_dir ./mosaic_processed_data/proportions/ --pos ./mosaic_processed_data/results_full/*post.txt --verbose --compute_all --temp_dir ./mosaic_processed_data/proportions/temp_files/ --seq ./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta
 ```
 
 Load proportions
@@ -519,8 +519,94 @@ gg
 We now look at how the South American isolates as a mixture of non-south American isolate sequences. This helps to look at genes that are conserved in a subset of SA countries which obscures the distances to the African ones.
 
 First lets load the binary matrix.
-```{r}
-binary_df <- fread("./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt"
+```{r, eval=FALSE}
+isolateInformation <- fread("./data/isolate_information.csv"
+                            , header=TRUE
+                            , data.table = FALSE)
+#Add in country information
+isolateInformation$Country <- unlist(lapply(isolateInformation$Location
+                                            , function(x) {
+                                              str_split(x,  "_", n=2)[[1]][[1]]}))
+
+#Remove duplicate entries of isolates that have been sequenced more than once
+isolateInformation <- isolateInformation[!duplicated(isolateInformation$Isolate),]
+isolateInformation <- isolateInformation[,c("Isolate", "Country")]
+
+otuTable <- fread("./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt"
       , data.table = FALSE
       , header = TRUE)
+otuMatrix <- as.matrix(otuTable[,2:ncol(otuTable)])
+rownames(otuMatrix) <- otuTable$`#OTU ID`
+SA_isolates <- isolateInformation$Isolate[isolateInformation$Country %in% c("Peru", "FrenchGuiana", "Venezuela", "Colombia")]
+
+SA_types <- rownames(otuMatrix)[rowSums(otuMatrix[,colnames(otuMatrix) %in% SA_isolates])>0]
+non_SA_types <- rownames(otuMatrix)[rowSums(otuMatrix[,!(colnames(otuMatrix) %in% SA_isolates)])>0]
+unique_to_SA_types <- SA_types[!(SA_types %in% non_SA_types)]
+length(unique_to_SA_types)
+write.table(unique_to_SA_types, file="./mosaic_data/unique_SA_types.txt"
+            , sep=",", col.names = FALSE, row.names = FALSE, quote = FALSE)
+```
+
+Now to set up the files needed to run mosaic
+```{r}
+mkdir ./mosaic_processed_data/SA_proportions
+```
+
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+
+seqs = []
+SA_unique_seqs = []
+SA_types = set()
+
+with open("./mosaic_data/unique_SA_types.txt", 'rU') as infile:
+  for line in infile:
+    SA_types.add(line.strip())
+
+count=0
+for h,s in FastaReader("./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta"):
+  if h in SA_types:
+    SA_unique_seqs.append(("seq"+str(count), h, s))
+  else:
+    seqs.append(("seq"+str(count), h, s))
+  count+=1
+
+for target in SA_unique_seqs:
+  with open("./mosaic_processed_data/SA_proportions/Combined_454_tessema_centroids_reducedRegion_SA_target_"+target[0]+".fasta",'w') as outfile:
+    outfile.write(">target_"+target[0]+"\n"+target[2]+"\n")
+    for seq in seqs:
+      outfile.write(">db_"+seq[0]+"\n"+seq[2]+"\n")
+
+with open("./mosaic_processed_data/SA_proportions/Combined_454_tessema_centroids_reducedRegion_SA_target_mapping.txt",'w') as outfile:
+  for target in SA_unique_seqs:
+    outfile.write(target[0] + "\t" + target[1] + "\n")
+  for seq in seqs:
+    outfile.write(seq[0] + "\t" + seq[1] + "\n")
+```
+
+```{r}
+noSA_otuMatrix <- otuMatrix[,!(colnames(otuMatrix) %in% SA_isolates)]
+
+for (iso in SA_isolates){
+  print(iso)
+  t <- data.frame(`otu`=rownames(noSA_otuMatrix), target=otuMatrix[,iso], noSA_otuMatrix)
+  outfile <- paste(c("./mosaic_processed_data/SA_proportions/Combined_454_tessema_centroids_reducedRegion_SA_target_", iso, ".txt"), collapse = "")
+  cat(paste(c("#OTU ID",iso,colnames(noSA_otuMatrix)), collapse="\t")
+      , file=outfile,sep="\n")
+  write.table(t, file=outfile
+            , quote = FALSE, row.names = FALSE
+            , col.names = FALSE, sep="\t", append = TRUE)
+}
+```
+
+```{bash, eval=FALSE}
+mkdir ./mosaic_processed_data/SA_proportions/temp_files
+
+for iso in ./mosaic_processed_data/SA_proportions/*target*.txt; 
+do 
+iso=${iso##*_};
+iso=${iso%.*};
+echo $iso
+python ./scripts/calculate_expected_proportions.py --otu "./mosaic_processed_data/SA_proportions/Combined_454_tessema_centroids_reducedRegion_SA_target_${iso}.txt" --map ./mosaic_processed_data/SA_proportions/Combined_454_tessema_centroids_reducedRegion_SA_target_mapping.txt --out_dir ./mosaic_processed_data/SA_proportions/ --pos ./mosaic_processed_data/SA_proportions/mosaic_results/*post.txt --verbose --isolate $iso --temp_dir ./mosaic_processed_data/SA_proportions/mosaic_results/temp_files/ --seq ./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta --no_match_self
+done
 ```
