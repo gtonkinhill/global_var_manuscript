@@ -96,7 +96,7 @@ def calculateProportion(seq_lengths, hmm_posterior, num_isolates_per_read
   for isoA in iso_to_reads:
     if isolate!="" and isoA==isolate:
       for isoB in iso_to_reads:
-        # if isoA==isoB: continue
+        if isoA==isoB: continue
         chunk_sum = 0
         seq_length = 0
         for rt in iso_to_reads[isoA]:
