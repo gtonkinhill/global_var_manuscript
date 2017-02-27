@@ -130,7 +130,7 @@ def calculateForEachRead(outputfile, isolate
   , verbose):
   isolate_pos_files = []
   for read in iso_to_reads[isolate]:
-    if num_isolates_per_read[read]<1: continue #Dont need the posterior file
+    if num_isolates_per_read[read]>1: continue #Dont need the posterior file
     isolate_pos_files.append(temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
 
   seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
