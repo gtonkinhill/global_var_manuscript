@@ -211,7 +211,7 @@ def main():
       , args.verbose) for iso in iso_to_reads)
   else:
     outputfile=args.outputdir + args.isolate + "_proportions.txt"
-    calculateForEachRead(outputfile, iso
+    calculateForEachRead(outputfile, args.isolate
       , args.temp_dir, mapping_dict, read_to_short_dict
       , num_isolates_per_read, iso_to_reads
       , args.verbose)
