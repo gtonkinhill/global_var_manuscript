@@ -67,7 +67,7 @@ def loadPosteriors(filenames, mapping_dict, isolate, iso_to_reads, verbose):
         hmm_posterior[(line[0], line[1])] = [float(t) for t in line[3:]]
         reads_in_mapping.add(line[0])
         reads_in_mapping.add(line[1])
-  return seq_lengths, hmm_posterior, reads_in_mapping
+  return hmm_posterior, reads_in_mapping
 
 def loadOtuMatrix(otu_file, verbose):
   num_isolates_per_read = {}
@@ -108,7 +108,7 @@ def calculateProportion(seq_lengths, hmm_posterior, num_isolates_per_read
           else:
             for rs in iso_to_reads[isoB]:
               if rs==rt:
-                chunk_sum += seq_lengths[rt]*1/float(num_isolates_per_read[rs])
+                chunk_sum += seq_lengths[rt]*1/(float(num_isolates_per_read[rs])-1) # -1 as we dont want to count itself
         proportions[(isoA, isoB)] = chunk_sum/float(seq_length)
 
   return proportions
@@ -126,14 +126,14 @@ def writeProportions(proportions, outputfile, verbose):
 
 def calculateForEachRead(outputfile, isolate
   , temp_dir, mapping_dict, read_to_short_dict
-  , num_isolates_per_read, iso_to_reads
+  , num_isolates_per_read, iso_to_reads, seq_lengths
   , verbose):
   isolate_pos_files = []
   for read in iso_to_reads[isolate]:
     if num_isolates_per_read[read]>1: continue #Dont need the posterior file
     isolate_pos_files.append(temp_dir + read_to_short_dict[read]+ "_postSplit.txt")
 
-  seq_lengths, hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
+  hmm_posterior, reads_in_mapping = loadPosteriors(isolate_pos_files
     , mapping_dict, isolate, iso_to_reads, verbose)
 
   proportions = calculateProportion(seq_lengths, hmm_posterior
@@ -144,12 +144,26 @@ def calculateForEachRead(outputfile, isolate
 
   return
 
+def getSeqLengths(seqfile, verbose):
+  if verbose:
+    print "Loading sequence lengths... ", seqfile
+
+  seq_lengths={}
+  for h,s in FastaReader(seqfile):
+    seq_lengths[h]=len(s)
+
+  return seq_lengths
+
 def main():
 
   parser = argparse.ArgumentParser(description='Calculate proportions from Mosaic and clustering analysis')
 
   parser.add_argument('--otu', dest='otufile'
     , help="location of binary otu matrix."
+    , required=True)
+
+  parser.add_argument('--seq', dest='seqfile'
+    , help="location of original sequence file (the centroids)."
     , required=True)
 
   parser.add_argument('--map', dest='mapfile'
@@ -199,6 +213,8 @@ def main():
 
   mapping_dict, read_to_short_dict = loadMappingFile(args.mapfile, args.verbose)
 
+  seq_lengths = getSeqLengths(args.seqfile, args.verbose)
+
   num_isolates_per_read, iso_to_reads = loadOtuMatrix(args.otufile, args.verbose)
 
   if len(glob.glob(args.temp_dir + "*_postSplit.txt"))<1:
@@ -208,13 +224,13 @@ def main():
     Parallel(n_jobs=args.cpu)(delayed(calculateForEachRead)(args.outputdir + iso + "_proportions.txt"
       , iso
       , args.temp_dir, mapping_dict, read_to_short_dict
-      , num_isolates_per_read, iso_to_reads
+      , num_isolates_per_read, iso_to_reads, seq_lengths
       , args.verbose) for iso in iso_to_reads)
   else:
     outputfile=args.outputdir + args.isolate + "_proportions.txt"
     calculateForEachRead(outputfile, args.isolate
       , args.temp_dir, mapping_dict, read_to_short_dict
-      , num_isolates_per_read, iso_to_reads
+      , num_isolates_per_read, iso_to_reads, seq_lengths
       , args.verbose)
 
   return
