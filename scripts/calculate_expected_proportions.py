@@ -5,6 +5,7 @@ import numpy as np
 from collections import defaultdict
 import glob
 from joblib import Parallel, delayed
+from mungo.fasta import FastaReader
 
 def loadMappingFile(mapfile, verbose):
   mapping_dict = {}
