@@ -448,6 +448,16 @@ gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
 gg
 ```
 
+```{r}
+summary_prop_table <- avg_proportions %>% group_by_(.dots=c("Origin","Country")) %>%
+  summarise(
+    mean_=mean(reWeighted),
+    sd=sd(reWeighted)
+  )
+d <- acast(summary_prop_table, Origin~Country, value.var="mean_")
+ggcorrplot(t(d), lab = TRUE)
+```
+
 Now to ignore the alignment to itself
 ```{r}
 summ_location <- prop_merge %>% group_by(Country) %>%
