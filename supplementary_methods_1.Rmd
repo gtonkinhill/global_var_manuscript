@@ -323,18 +323,18 @@ admixOut <- data.frame(family=rownames(otuMatrixNoLab_t),
                        sex=rep(0, nrow(otuMatrixNoLab_t)),
                        phenotype=rep(-9, nrow(otuMatrixNoLab_t)))
 #replicate each column
-rep_otuMatrixNoLab_t <- otuMatrixNoLab_t[,rep(1:ncol(otuMatrixNoLab_t), rep(2,ncol(otuMatrixNoLab_t)))]
-admixOut <- cbind(admixOut, apply(rep_otuMatrixNoLab_t, 2, function(x) x+1))
+# rep_otuMatrixNoLab_t <- otuMatrixNoLab_t[,rep(1:ncol(otuMatrixNoLab_t), rep(2,ncol(otuMatrixNoLab_t)))]
+admixOut <- cbind(admixOut, apply(otuMatrixNoLab_t, 2, function(x) x+1))
 write.table(admixOut, file="./processed_data/admixture_input.ped"
             , quote=FALSE, sep=" "
             , row.names = FALSE, col.names=FALSE)
-
 
 map <- data.frame(chromosome=rep(1,ncol(otuMatrixNoLab_t)),
                   id=paste(rep("rs", ncol(otuMatrixNoLab_t))
                            ,1:ncol(otuMatrixNoLab_t),sep=""),
                   dist=rep(0,ncol(otuMatrixNoLab_t)),
                   loc=11:(ncol(otuMatrixNoLab_t)+10),
+
                   stringsAsFactors = FALSE)
 write.table(map, file="./processed_data/admixture_input.map"
             , quote=FALSE, sep="\t"
