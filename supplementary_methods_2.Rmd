@@ -629,6 +629,18 @@ gg
 
 ```
 
+```{r}
+library(ggcorrplot)
+library(reshape2)
+library(dplyr)
+summary_prop_table <- avg_proportions %>% group_by_(.dots=c("Origin","Country")) %>%
+  summarise(
+    mean_=mean(reWeighted),
+    sd=sd(reWeighted)
+  )
+d <- acast(summary_prop_table, Origin~Country, value.var="mean_")
+ggcorrplot(t(d), lab = TRUE)
+```
 
 ###Investigate the recombination hotspots
 ```{python, eval=FALSE}
