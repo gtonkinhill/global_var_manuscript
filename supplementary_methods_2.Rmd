@@ -478,6 +478,161 @@ gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
 gg
 ```
 
+####Other Ape parasites
+
+We now look at the relationship between the other ape parasites of Larremore et al.
+First combine P.Gaboni, P.Billcolinsi and the mix of P.praefalciparum and P.Olderi with 3D7, HB3 and DD2.
+```{bash, eval=FALSE}
+mkdir ape_processed_data
+```
+
+First we collect all the sequences before translating them into protein sequence and remove those that can not be succesfully translated.
+```{python, eval=FALSE}
+from mungo.sequence import sixFrameTranslation
+from mungo.fasta import FastaReader
+import os, sys
+from collections import defaultdict
+
+with open("./ape_processed_data/combined_ape_3d7_DD2_HB3.fasta", 'w') as outfile:
+  for f in ["SYpte37_C2.fasta",  "SYptt15_C1.fasta",  "SYptt20_C3.fasta",  "SYptt75_C2.fasta",  "SYptt79_C3.fasta"]:
+    iso = f.split(".")[0]
+    f = "./data/" + f
+    for h,s in FastaReader(f):
+      read_name = iso + "." + h.split()[0]
+      outfile.write(">" + read_name + "\n" + s + "\n")
+  for h,s in FastaReader("./data/combined_all_454_noPOR.fasta"):
+    iso = h.split(".")[0]
+    if iso in ["3D7","HB3","DD2"]:
+      outfile.write(">"+h+"\n"+s+"\n")
+
+num_stops = 0
+seqCount = 0
+badSeqs = 0
+bad_lengths = []
+
+inputfile = "./ape_processed_data/combined_ape_3d7_DD2_HB3.fasta"
+output_file = "./ape_processed_data/Protein_combined_ape_3d7_DD2_HB3.fasta"
+
+with open(output_file + "_BadSeqs", 'w') as badfile:
+  with open(output_file, 'w') as outfile:
+    for h,s in FastaReader(inputfile):
+      stops = 9999
+      translation = sixFrameTranslation(s)
+      for frame in translation:
+        st = translation[frame].count('*')
+        if st < stops:
+          best = frame
+          stops = st
+      if stops <= num_stops:
+        outfile.write(">" + h + " frame_" + str(best) + "\n")
+        outfile.write(translation[best] + "\n")
+      else:
+        badSeqs += 1
+        bad_lengths.append(len(s))
+        badfile.write(">" + h + "\n")
+        badfile.write(s + "\n")
+      seqCount += 1
+
+print (str((100.0*badSeqs)/seqCount) + "percent or "
+  + str(badSeqs) + " out of " + str(seqCount) + " were not translated.")
+
+successfully_translated = {}
+
+for h,s in FastaReader(output_file):
+  successfully_translated[h.split()[0]]=s
+
+#Create filtered DNA sequence file for clustering
+with open("./ape_processed_data/DNA_combined_ape_3d7_DD2_HB3.fasta", 'w') as outfile:
+  for h,s in FastaReader(inputfile):
+    if h in successfully_translated:
+      outfile.write(">"+h+"\n"+s+"\n") 
+```
+98.74% of the sequences were successfuly translated.
+
+```{bash, eval=FALSE}
+python ./scripts/clusterDBLa.py -o ./ape_processed_data/ -r ./ape_processed_data/DNA_combined_ape_3d7_DD2_HB3.fasta --cpu 30 --verbose
+```
+
+Get protein translations of centroids and rename ready for mosaic
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+
+centroids=set()
+for h,s in FastaReader("./ape_processed_data/DNA_combined_ape_3d7_DD2_HB3_renamed_centroids.fasta"):
+  centroids.add(h.split(";sample=")[0])
+
+count=0
+with open("./ape_processed_data/Protein_combined_ape_3d7_DD2_HB3_renamed_centroids_mapping.txt", 'w') as mapping:
+  with open("./ape_processed_data/Protein_combined_ape_3d7_DD2_HB3_renamed_centroids.fasta", 'w') as outfile:
+    for h,s in FastaReader("./ape_processed_data/Protein_combined_ape_3d7_DD2_HB3.fasta"):
+      if h.split()[0] in centroids:
+        count+=1
+        read="seq"+str(count)
+        mapping.write(read + "\t" + h.split()[0] + "\n")
+        outfile.write(">target_"+read+"\n"+s+"\n")
+```
+
+Now run mosaic
+```{bash, eval=FALSE}
+cd ./ape_processed_data/
+seq="Protein_combined_ape_3d7_DD2_HB3_renamed_centroids.fasta"
+fasta="Protein_combined_ape_3d7_DD2_HB3_renamed_centroids"
+/home/users/allstaff/tonkin-hill.g/global_var_manuscript/mosaic/mosaic -ma -seq $seq -aa -tag $fasta -group 2 db target -target target -del 0.0166765773591 -eps 0.273305573191 -rec 0.014 | tee ${fasta}_output.log
+cd ..
+```
+
+Now we can look at the resulting proportions
+```{bash, eval=FALSE}
+mkdir ./ape_processed_data/proportions
+mkdir ./ape_processed_data/proportions/temp_files
+
+python ./scripts/calculate_expected_proportions.py --otu ./ape_processed_data/DNA_combined_ape_3d7_DD2_HB3_renamed_otuTable_binary.txt --map ./ape_processed_data/Protein_combined_ape_3d7_DD2_HB3_renamed_centroids_mapping.txt --out_dir ./ape_processed_data/proportions/ --pos ./ape_processed_data/*post.txt --verbose --compute_all --temp_dir ./ape_processed_data/proportions/temp_files/ --seq ./ape_processed_data/Protein_combined_ape_3d7_DD2_HB3.fasta
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+isolateInformation <- data.frame(
+  Isolate=c("SYpte37_C2",  "SYptt75_C2",  "SYptt15_C1",  "SYptt20_C3",  "SYptt79_C3", "HB3", "DD2", "3D7"),
+  Species=c("P.gaboni","P.gaboni","P.reichenowi","P.billcollinsi","P.billcollinsi","P.falciparum","P.falciparum","P.falciparum"),
+  stringsAsFactors = FALSE)
+  
+#Proportion file
+prop_files <- Sys.glob("./ape_processed_data/proportions/*proportions.txt")
+avg_proportions <- data.frame()
+for (f in prop_files){
+
+  proportion <- fread(f, data.table = FALSE)
+  colnames(proportion) <- c("Target", "Reference", "Proportion")
+prop_merge <- merge(proportion, isolateInformation, by.x="Reference", by.y = "Isolate", all.x=TRUE)
+
+  sum_location <- prop_merge %>% group_by(Species) %>%
+    summarise(
+      num.isolates = n(),
+      sum.prop = sum(Proportion),
+      avg.proportion = mean(Proportion)
+    )
+
+  sum_location$reWeighted <- sum_location$avg.proportion/sum(
+    sum_location$avg.proportion)
+  iso <- gsub(".*proportions/","",f)
+  iso <- gsub("_proportions.txt","",iso)
+  sum_location$Isolate <- rep(iso, nrow(sum_location))
+  avg_proportions <- rbind(avg_proportions, sum_location)
+}
+
+colnames(isolateInformation) <- c("Isolate","Origin")
+avg_proportions <- merge(avg_proportions, isolateInformation, by.x="Isolate", by.y="Isolate", all.x=TRUE)
+
+gg <- ggplot(avg_proportions, aes(x=Isolate, y=reWeighted, fill=Species))
+gg <- gg + facet_grid(Species~Origin, scales = "free_x", space = "free_x")
+gg <- gg + coord_cartesian(ylim=c(0,1))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
+
+```
 ##A closer investigation of South America
 We now look at how the South American isolates as a mixture of non-south American isolate sequences. This helps to look at genes that are conserved in a subset of SA countries which obscures the distances to the African ones.
 

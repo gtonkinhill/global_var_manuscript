@@ -152,7 +152,7 @@ def getSeqLengths(seqfile, verbose):
 
   seq_lengths={}
   for h,s in FastaReader(seqfile):
-    seq_lengths[h]=len(s)
+    seq_lengths[h.split()[0]]=len(s)
 
   return seq_lengths
 
