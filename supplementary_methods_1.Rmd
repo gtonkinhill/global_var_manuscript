@@ -322,9 +322,7 @@ admixOut <- data.frame(family=rownames(otuMatrixNoLab_t),
                        maternalId=rep(0, nrow(otuMatrixNoLab_t)),
                        sex=rep(0, nrow(otuMatrixNoLab_t)),
                        phenotype=rep(-9, nrow(otuMatrixNoLab_t)))
-#replicate each column
-rep_otuMatrixNoLab_t <- otuMatrixNoLab_t[,rep(1:ncol(otuMatrixNoLab_t), rep(2,ncol(otuMatrixNoLab_t)))]
-admixOut <- cbind(admixOut, apply(rep_otuMatrixNoLab_t, 2, function(x) x+1))
+admixOut <- cbind(admixOut, apply(otuMatrixNoLab_t, 2, function(x) x+1))
 write.table(admixOut, file="./processed_data/admixture_input.ped"
             , quote=FALSE, sep=" "
             , row.names = FALSE, col.names=FALSE)
@@ -377,7 +375,7 @@ It is also worth taking a look at the K from 1 to 10
 plotMultiK(admix[order(unlist(lapply(admix,getK)))], populations)
 ```
 
-The small dip in the cross-validation error at K=6x appears to correspond with Admixture infering different hidden populations for the three African countries. For all K PNG does is not seperated from the African background cluster. This could be because of the different experimental method used in obtaining the PNG isolates.
+The small dip in the cross-validation error at K=6 appears to correspond with Admixture infering different hidden populations for the three African countries. At K=6 Iran is also distinct. For all K PNG does is not seperated from the African background cluster. This could be because of the different experimental method used in obtaining the PNG isolates.
 
 We now take a closer look at the model with 6 underlying populations.
 ```{r}
@@ -506,7 +504,6 @@ We can now attempt to choose an appropriate value of l. First let look at word u
 ```{r}
 word_usage <- fread("./processed_data/ffp_word_usage.txt",
                     data.table = FALSE)
-word_usage$V1[which.max(word_usage$V2)]
 plot(word_usage)
 ```
 
@@ -514,39 +511,15 @@ plot(word_usage)
 entropy <- fread("./processed_data/ffp_entropy_profile.txt",
                     data.table = FALSE)
 plot(entropy)
-
-#Save a list of the isolates with at least 20 types.
-write.table(colnames(otuMatrixNoLab), file="./ffp_data/keep_isolates.txt"
-            , quote = FALSE, sep=",", col.names = FALSE, row.names = FALSE)
 ```
 
 Thus a choice of l=20 appears to be appropriate.
 
-We would like to trim the PNG reads to ensure they are from a similar region.
-```{bash, eval=FALSE}
-hmmalign -o ./ffp_data/hmmalign_dbla_combined_all_454_noPOR.sto ./data/atag.hmm ./data/combined_all_454_noPOR.fasta
-hmmbuild ./ffp_data/dbla_combined_all_454_noPOR.hmm ./ffp_data/hmmalign_dbla_combined_all_454_noPOR.sto
-hmmalign --trim -o ./ffp_data/hmmalign_dbla_combined_all_454_noPOR_VS_combined_454_tessema.sto ./ffp_data/dbla_combined_all_454_noPOR.hmm ./processed_data/combined_454_tessema.fas
-esl-reformat fasta ./ffp_data/hmmalign_dbla_combined_all_454_noPOR_VS_combined_454_tessema.sto > ./ffp_data/combined_454_tessema_trimmed.fasta
-```
-
-We now want to get the set of sequences (excluding the labratory isolates) from which to cluster.
-```{python, eval=FALSE}
-from mungo.fasta import FastaReader
-keep=set()
-for line in open("./ffp_data/keep_isolates.txt", 'rU'):
-  keep.add(line.strip())
-
-with open("./ffp_data/combined_454_tessema_trimmed_keepIsos.fasta", 'w') as outfile:
-  for h,s in FastaReader("./ffp_data/combined_454_tessema_trimmed.fasta"):
-    if h.split(".")[0] in keep:
-      outfile.write(">"+h+"\n"+s+"\n")
-```
-
+We now want to get the set of sequences (excluding the labratory isolates) from which to cluster. We borrow those set up for the jumping HMM analysis (see supplementary_methods_2).
 
 We can now run a script to calculate the ffp distance matrix. The original ffp script from xxx generated segment faults when we attempted to use it.
 ```{bash, eval=FALSE}
-python ./scripts/ffp.py --kmer_length 20 --out ./processed_data/ffp_distance_matrix.phylip --seq ./ffp_data/combined_454_tessema_trimmed_keepIsos.fasta --verbose
+python ./scripts/ffp.py --kmer_length 20 --out ./processed_data/ffp_distance_matrix.phylip --seq ./processed_data/combined_454_tessema.fas --verbose
 ```
 
 Finally a tree was built using fastme v2.1.4 with default parameters in interactive mode. We can now have a look at the resulting tree.
@@ -554,9 +527,10 @@ Finally a tree was built using fastme v2.1.4 with default parameters in interact
 ```{r}
 ffp <- read.tree("./processed_data/ffp_distance_matrix.phylip_fastme_tree.txt")
 
+isolateInformation$Country[isolateInformation$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")] <- "Lab"
 groupInfo <- isolateInformation %>% group_by(Country) %>%
   do(taxa_list = .$Isolate)
-groupInfo <- groupInfo[!(groupInfo$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
+# groupInfo <- groupInfo[!(groupInfo$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
 
 groups <- lapply(groupInfo$taxa_list, as.vector)
 names(groups) <- groupInfo$Country
