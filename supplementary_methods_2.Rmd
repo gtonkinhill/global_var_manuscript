@@ -14,6 +14,18 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8,
                       tidy=TRUE)
 ```
 
+##Load libraries
+```{r}
+library(data.table)
+library(stringr)
+library(readr)
+library(ggplot2)
+library(boot)
+library(ggcorrplot)
+library(reshape2)
+library(dplyr)
+```
+
 ##Mosaic model
 The mosaic model is best run on protein sequence as the alignments will be more interpretable. It will also be more efficient as the algorithm complexity is of order $N^2 l^2$. Furthermore, we only want to compare isolates with isolates from other regions. Thus we remove lab isolates and those sequences that can not be translated. We say a sequence can be translated if the resulting protein sequence has no stop codons.
 
@@ -142,7 +154,7 @@ Now we perform the Viterbi training algorithm
 Iterate until convergence:
 0) Choose an initial set of parameters
 1) Compute the Viterbi paths of all sequences
-2) Count frequencies of events and calculate parameters
+2) Count frequencies of events and calculate new parameters
 3) Update -> 1) 
 4) Stop when the major paramters del and eps change by less than 1%. 
 
@@ -175,10 +187,6 @@ with open("jump_llk.csv", 'w') as outfile:
 
 Lets investigate the jump log-likelihoods
 ```{r}
-library(data.table)
-library(ggplot2)
-library(boot)
-
 llk <- read.table("./mosaic_data/jump_llk.csv"
                   , sep=",", header = FALSE, fill = TRUE)
 
@@ -224,9 +232,6 @@ python ./scripts/calculate_expected_proportions.py --otu ./mosaic_data/DNA_NoLab
 Load proportions
 
 ```{r}
-library(dplyr)
-library(ggplot2)
-
 isolateInformation <- fread("./data/isolate_information.csv"
                             , header=TRUE
                             , data.table = FALSE)
@@ -281,8 +286,6 @@ gg
 ```
 
 ```{r}
-library(ggcorrplot)
-library(reshape2)
 summary_prop_table <- avg_proportions %>% group_by_(.dots=c("Origin","Country")) %>%
   summarise(
     mean_=mean(reWeighted),
@@ -386,10 +389,7 @@ cd ../..
 ```
 
 To run the proportion script we need to add the Reichenowi isolates into the binary matrix.
-```{r}
-library(data.table)
-library(stringr)
-library(readr)
+```{r, eval=FALSE}
 binary_df <- fread("./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_renamed_otuTable_binary.txt"
       , data.table = FALSE
       , header = TRUE)
@@ -590,9 +590,6 @@ python ./scripts/calculate_expected_proportions.py --otu ./ape_processed_data/DN
 ```
 
 ```{r}
-library(dplyr)
-library(ggplot2)
-
 isolateInformation <- data.frame(
   Isolate=c("SYpte37_C2",  "SYptt75_C2",  "SYptt15_C1",  "SYptt20_C3",  "SYptt79_C3", "HB3", "DD2", "3D7"),
   Species=c("P.gaboni","P.gaboni","P.reichenowi","P.billcollinsi","P.billcollinsi","P.falciparum","P.falciparum","P.falciparum"),
@@ -666,7 +663,7 @@ write.table(unique_to_SA_types, file="./mosaic_data/unique_SA_types.txt"
 ```
 
 Now to set up the files needed to run mosaic
-```{r}
+```{bash, eval=FALSE}
 mkdir ./mosaic_processed_data/SA_proportions
 ```
 
@@ -702,7 +699,7 @@ with open("./mosaic_processed_data/SA_proportions/Combined_454_tessema_centroids
     outfile.write(seq[0] + "\t" + seq[1] + "\n")
 ```
 
-```{r}
+```{r, eval=FALSE}
 noSA_otuMatrix <- otuMatrix[,!(colnames(otuMatrix) %in% SA_isolates)]
 
 for (iso in SA_isolates){
@@ -785,9 +782,6 @@ gg
 ```
 
 ```{r}
-library(ggcorrplot)
-library(reshape2)
-library(dplyr)
 summary_prop_table <- avg_proportions %>% group_by_(.dots=c("Origin","Country")) %>%
   summarise(
     mean_=mean(reWeighted),
@@ -848,8 +842,6 @@ with open("./mosaic_data/breakpoint_jump_counts.txt", 'w') as outfile:
 ```
 
 ```{r}
-library(readr)
-library(stringr)
 recombination <- unlist(fread("./mosaic_data/breakpoint_jump_counts.txt", data.table = FALSE)[1,])
 lines <- read_lines("./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids.fasta.fa")
 lines <- lines[!grepl("^>.*", lines)]
@@ -868,4 +860,10 @@ gg <- gg + geom_bar(stat='identity')
 gg <- gg + facet_wrap(~variable, scales = "free_y", ncol=1)
 gg <- gg + theme_bw()
 gg
+```
+
+####Session Information
+This is only valid session information for the R code. Much of the remaining code was run on a high performance computing cluster at the Walter and Eliza Hall Institute.
+```{r}
+sessionInfo()
 ```
