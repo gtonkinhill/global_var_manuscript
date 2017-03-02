@@ -544,7 +544,6 @@ ffp <- read.tree("./processed_data/ffp_distance_matrix.phylip_fastme_tree.txt")
 isolateInformation$Country[isolateInformation$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")] <- "Lab"
 groupInfo <- isolateInformation %>% group_by(Country) %>%
   do(taxa_list = .$Isolate)
-# groupInfo <- groupInfo[!(groupInfo$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
 
 groups <- lapply(groupInfo$taxa_list, as.vector)
 names(groups) <- groupInfo$Country
