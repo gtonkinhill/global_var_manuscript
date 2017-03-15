@@ -557,6 +557,20 @@ gg <- gg + scale_color_manual(values=cols,
 gg
 ```
 
+In a similar fashion to Yalcindag et al
+```{r, eval=FALSE}
+distMatrix <- fread("./processed_data/ffp_distance_matrix.phylip", skip=1, header=FALSE, data.table = FALSE)
+
+keep <- isolateInformation$Isolate[!(isolateInformation$Country %in% c("Peru", "Venezuela"))]
+keep <- distMatrix$V1 %in% keep
+distMatrix <- distMatrix[keep, c(TRUE, keep)]
+
+cat((ncol(distMatrix)-1), '\n',  file = "./processed_data/ffp_distance_matrix_noPeruVenezuela.phylip")
+write.table(format(distMatrix, digits=10)
+            , file="./processed_data/ffp_distance_matrix_noPeruVenezuela.phylip"
+            , sep=" ", row.names = FALSE
+            , col.names = FALSE, quote = FALSE, append = TRUE)
+```
 
 
 ##Session Information
