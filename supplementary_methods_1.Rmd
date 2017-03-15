@@ -542,6 +542,7 @@ Finally a tree was built using fastme v2.1.4 with default parameters in interact
 ffp <- read.tree("./processed_data/ffp_distance_matrix.phylip_fastme_tree.txt")
 
 isolateInformation$Country[isolateInformation$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")] <- "Lab"
+isolateInformation <- isolateInformation[isolateInformation$Country!="Lab",]
 groupInfo <- isolateInformation %>% group_by(Country) %>%
   do(taxa_list = .$Isolate)
 
@@ -549,15 +550,18 @@ groups <- lapply(groupInfo$taxa_list, as.vector)
 names(groups) <- groupInfo$Country
 ffp <- groupOTU(ffp, groups)
 
+t_cols <- cols
+names(t_cols) <- names(groups)
+
 gg <- ggtree(ffp, aes(color=group, label=node)
              , size=0.3, branch.length = "none", layout="circular")
-gg <- gg + scale_color_manual(values=cols,
-                              labels=names(groups)) +
+gg <- gg + scale_color_manual(values=as.character(t_cols[names(t_cols) %in% names(groups)]),
+                              labels=names(t_cols)) +
   theme(legend.position="right")
 gg
 ```
 
-In a similar fashion to Yalcindag et al
+In a similar fashion to Yalcindag et al we remove the Peruvian and Venezulan isolates.
 ```{r, eval=FALSE}
 distMatrix <- fread("./processed_data/ffp_distance_matrix.phylip", skip=1, header=FALSE, data.table = FALSE)
 
@@ -572,6 +576,26 @@ write.table(format(distMatrix, digits=10)
             , col.names = FALSE, quote = FALSE, append = TRUE)
 ```
 
+Plot the tree without Peru and Venezuela
+```{r}
+ffp <- read.tree("./processed_data/ffp_distance_matrix_noPeruVenezuela.phylip_fastme_tree.txt")
+
+isolateInformationNoPeruVen <- isolateInformation[!(isolateInformation$Country %in% c("Peru", "Venezuela")),]
+
+groupInfo <- isolateInformationNoPeruVen %>% group_by(Country) %>%
+  do(taxa_list = .$Isolate)
+
+groups <- lapply(groupInfo$taxa_list, as.vector)
+names(groups) <- groupInfo$Country
+ffp <- groupOTU(ffp, groups)
+
+gg <- ggtree(ffp, aes(color=group, label=node)
+             , size=0.3, branch.length = "none", layout="circular")
+gg <- gg + scale_color_manual(values=as.character(t_cols[names(t_cols) %in% names(groups)]),
+                              labels=names(t_cols)) +
+  theme(legend.position="right")
+gg
+```
 
 ##Session Information
 ```{r}
