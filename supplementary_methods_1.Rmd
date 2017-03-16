@@ -592,7 +592,7 @@ ffp <- groupOTU(ffp, groups)
 gg <- ggtree(ffp, aes(color=group, label=node)
              , size=0.3, branch.length = "none", layout="circular")
 gg <- gg + scale_color_manual(values=as.character(t_cols[names(t_cols) %in% names(groups)]),
-                              labels=names(t_cols)) +
+                              labels=names(groups)) +
   theme(legend.position="right")
 gg
 ```
