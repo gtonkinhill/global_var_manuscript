@@ -869,19 +869,17 @@ count=0
 for h,s in FastaReader("./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta"):
   if h in SA_types:
     SA_unique_seqs.append(("seq"+str(count), h, s))
-  else:
-    seqs.append(("seq"+str(count), h, s))
+  seqs.append(("seq"+str(count), h, s))
   count+=1
 
 for target in SA_unique_seqs:
   with open("./mosaic_processed_data/SA_Ven_Peru_proportions/Combined_454_tessema_centroids_reducedRegion_SA_PeruVen_target_"+target[0]+".fasta",'w') as outfile:
     outfile.write(">target_"+target[0]+"\n"+target[2]+"\n")
     for seq in seqs:
+      if seq[0] == target[0]: continue
       outfile.write(">db_"+seq[0]+"\n"+seq[2]+"\n")
 
 with open("./mosaic_processed_data/SA_Ven_Peru_proportions/Combined_454_tessema_centroids_reducedRegion_SA_PeruVen_target_mapping.txt",'w') as outfile:
-  for target in SA_unique_seqs:
-    outfile.write(target[0] + "\t" + target[1] + "\n")
   for seq in seqs:
     outfile.write(seq[0] + "\t" + seq[1] + "\n")
 ```
