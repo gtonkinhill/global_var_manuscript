@@ -125,6 +125,32 @@ gg <- gg + theme_bw()
 gg
 ```
 
+We can also compare the number of type A and type B/C VAR genes.
+```{bash, eval=FALSE}
+python ./scripts/allocate_reads_to_domains.py --fasta ./processed_data/combined_454_tessema_renamed_centroids.fasta --hmm ./data/all_protein_exon1_domain_HMMs.hmm --out_dir ./processed_data/
+```
+
+```{r}
+type_freq_df <- data.frame(otu=rownames(otuMatrixNoLab)
+                           , num_isolates=rowSums(otuMatrixNoLab)
+                           , stringsAsFactors = FALSE)
+type_allocations <- fread("./processed_data/combined_454_tessema_renamed_centroids_domainAllocations.csv", sep=",", header=TRUE, data.table = FALSE)
+type_allocations$read <- gsub(";sample.*", "", type_allocations$read)
+type_freq_df <- merge(type_freq_df, type_allocations
+                      ,by.x = "otu", by.y="read", all.x=TRUE)
+type_freq_df$type[grepl("DBLa1", type_freq_df$domain)] <- "A"
+type_freq_df$type[!grepl("DBLa1", type_freq_df$domain)] <- "B/C"
+
+#Remove rares
+type_freq_df <- type_freq_df[type_freq_df$num_isolates>1,]
+
+#boxplot
+gg <- ggplot(type_freq_df, aes(factor(type), num_isolates, fill=type)) + geom_boxplot()
+gg <- gg + theme_bw()
+gg <- gg + scale_y_log10()
+gg
+```
+
 ###PCA
 ```{r}
 otuMatrixNoLab_t <- t(otuMatrixNoLab)
@@ -265,6 +291,13 @@ annotation_row <- fread("./processed_data/blast_hits_g50_summary_for_heatmap.txt
                        data.table = FALSE,
                        sep="\t",
                        header=TRUE)
+type_freq_df_anno <- type_freq_df
+type_freq_df_anno$domain <- gsub("\\..*","", type_freq_df_anno$domain)
+type_freq_df_anno <- type_freq_df_anno[,c("otu","domain")]
+
+annotation_row <- merge(annotation_row, type_freq_df_anno
+                        , by.x="SeqID", by.y="otu", all.x=TRUE)
+
 annotation_row$Countries <- unlist(lapply(str_split(str_to_lower(paste(annotation_row$Countries_binary
                 , annotation_row$Countries_blast, sep=";"))
                , pattern = ";")
@@ -273,7 +306,9 @@ annotation_row <- annotation_row[match(rownames(majorTypeMatrix), annotation_row
 rownames(majorTypeMatrix) <- paste(annotation_row$shortID, annotation_row$Countries, sep="-")
 annotation_row <- data.frame(row.names = rownames(majorTypeMatrix),
                              Annotation = annotation_row$Annotation,
+                             DomainType = annotation_row$domain,
                              stringsAsFactors = FALSE)
+
 
 # Specify colors
 ann_colors = list(
@@ -283,7 +318,8 @@ ann_colors = list(
                 Uganda="#cab2d6", Venezuela="#6a3d9a"),
     Annotation = c(none = "#7fc97f", pseudo = "#beaed4"
                    , var1 = "#fdc086", FCR3var2="#ffff99"
-                   , var5="#386cb0", FCR3var3="#f0027f")
+                   , var5="#386cb0", FCR3var3="#f0027f"),
+    DomainType = c(DBLa0="#ef8a62",DBLa1="#f7f7f7",DBLa2="#67a9cf")
 )
 pheatmap(majorTypeMatrix, cluster_cols = FALSE
          , clustering_distance_rows=distMatrix

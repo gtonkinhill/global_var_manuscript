@@ -820,7 +820,11 @@ gg
 ```
 
 ##Global without Peru or Venezuela
-First lets load the binary matrix.
+```{bash, eval=FALSE}
+mkdir ./mosaic_processed_data/SA_Ven_Peru_proportions
+```
+
+First lets load the binary matrix and remove the Peruvian and Venezuelan isolates.
 ```{r, eval=FALSE}
 isolateInformation <- fread("./data/isolate_information.csv"
                             , header=TRUE
@@ -839,20 +843,44 @@ otuTable <- fread("./mosaic_data/DNA_NoLab_translateable_combined_454_tessema_re
       , header = TRUE)
 otuMatrix <- as.matrix(otuTable[,2:ncol(otuTable)])
 rownames(otuMatrix) <- otuTable$`#OTU ID`
-SA_isolates <- isolateInformation$Isolate[isolateInformation$Country %in% c("Peru", "Venezuela")]
+PeruVen_isolates <- isolateInformation$Isolate[isolateInformation$Country %in% c("Peru", "Venezuela")]
 
-SA_types <- rownames(otuMatrix)[rowSums(otuMatrix[,colnames(otuMatrix) %in% SA_isolates])>0]
-non_SA_types <- rownames(otuMatrix)[rowSums(otuMatrix[,!(colnames(otuMatrix) %in% SA_isolates)])>0]
-unique_to_SA_types <- SA_types[!(SA_types %in% non_SA_types)]
-length(unique_to_SA_types)
-write.table(unique_to_SA_types, file="./mosaic_data/unique_Venezuela_Peru_types.txt"
+noPeruVenn_otuMatrix <- otuMatrix[,!(colnames(otuMatrix) %in% PeruVen_isolates)]
+noPeruVenn_otuMatrix <- noPeruVenn_otuMatrix[rowSums(noPeruVenn_otuMatrix)>0,]
+
+outfile <- "./mosaic_processed_data/SA_Ven_Peru_proportions/Combined_454_tessema_centroids_reducedRegion_SA_noPeruVenezuela_binaryMatrix.txt"
+cat(paste(c("#OTU ID",colnames(noPeruVenn_otuMatrix)), collapse="\t")
+      , file=outfile,sep="\n")
+write.table(noPeruVenn_otuMatrix, file=outfile
+            , quote = FALSE, row.names = TRUE
+            , col.names = FALSE, sep="\t", append = TRUE)
+```
+
+Now we want to search the types that are singletons that are found in Colombia and French Guiana.
+```{r}
+otuTable <- fread(outfile
+      , data.table = FALSE
+      , header = TRUE)
+otuMatrix <- as.matrix(otuTable[,2:ncol(otuTable)])
+rownames(otuMatrix) <- otuTable$`#OTU ID`
+ColFrench_isolates <- isolateInformation$Isolate[isolateInformation$Country %in% c("Colombia", "FrenchGuiana")]
+
+ColFrench_types <- rownames(otuMatrix)[rowSums(otuMatrix[,colnames(otuMatrix) %in% ColFrench_isolates])>0]
+non_ColFrench_types <- rownames(otuMatrix)[rowSums(otuMatrix[,!(colnames(otuMatrix) %in% ColFrench_isolates)])>0]
+unique_to_ColFrench_types <- ColFrench_types[!(ColFrench_types %in% non_ColFrench_types)]
+length(unique_to_ColFrench_types)
+write.table(unique_to_ColFrench_types, file="./mosaic_processed_data/SA_Ven_Peru_proportions/unique_Colombia_FrenchGuiana_types.txt"
             , sep=",", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+write.table(rownames(otuMatrix), file="./mosaic_processed_data/SA_Ven_Peru_proportions/keep_types_noPeruVenezuela.txt"
+            , sep=",", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+write.table(ColFrench_isolates, file="./mosaic_processed_data/SA_Ven_Peru_proportions/ColFrench_isolates.txt"
+            , sep=",", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
 ```
 
 Now to set up the files needed to run mosaic
-```{bash, eval=FALSE}
-mkdir ./mosaic_processed_data/SA_Ven_Peru_proportions
-```
 
 ```{python, eval=FALSE}
 from mungo.fasta import FastaReader
@@ -860,13 +888,22 @@ from mungo.fasta import FastaReader
 seqs = []
 SA_unique_seqs = []
 SA_types = set()
+keep_type = set()
 
-with open("./mosaic_data/unique_Venezuela_Peru_types.txt", 'rU') as infile:
+#Load type we want to search
+with open("./mosaic_processed_data/SA_Ven_Peru_proportions/unique_Colombia_FrenchGuiana_types.txt", 'rU') as infile:
   for line in infile:
     SA_types.add(line.strip())
 
+#Load remaining types after the removal of Peru and Venezuela
+with open("./mosaic_processed_data/SA_Ven_Peru_proportions/keep_types_noPeruVenezuela.txt", 'rU') as infile:
+  for line in infile:
+    keep_type.add(line.strip())
+    
+
 count=0
 for h,s in FastaReader("./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta"):
+  if h not in keep_type: continue
   if h in SA_types:
     SA_unique_seqs.append(("seq"+str(count), h, s))
   seqs.append(("seq"+str(count), h, s))
@@ -885,6 +922,83 @@ with open("./mosaic_processed_data/SA_Ven_Peru_proportions/Combined_454_tessema_
 ```
 
 
+```{bash, eval=FALSE}
+mkdir ./mosaic_processed_data/SA_Ven_Peru_proportions/temp_files
+
+ISOLATES="$(< ./mosaic_processed_data/SA_Ven_Peru_proportions/ColFrench_isolates.txt)"
+
+for iso in $ISOLATES; do
+echo $iso
+python ./scripts/calculate_expected_proportions.py --otu ./mosaic_processed_data/SA_Ven_Peru_proportions/Combined_454_tessema_centroids_reducedRegion_SA_noPeruVenezuela_binaryMatrix.txt --map ./mosaic_processed_data/SA_Ven_Peru_proportions/Combined_454_tessema_centroids_reducedRegion_SA_PeruVen_target_mapping.txt --out_dir ./mosaic_processed_data/SA_Ven_Peru_proportions/ --pos ./mosaic_processed_data/SA_Ven_Peru_proportions/*post.txt --verbose --isolate $iso --temp_dir ./mosaic_processed_data/SA_Ven_Peru_proportions/temp_files/ --seq ./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta --no_match_self
+done
+```
+
+Now we can plot the results
+```{r}
+#Proportion file
+prop_files <- Sys.glob("./mosaic_processed_data/SA_Ven_Peru_proportions/*proportions.txt")
+avg_proportions <- data.frame()
+for (f in prop_files){
+
+  proportion <- fread(f, data.table = FALSE)
+  colnames(proportion) <- c("Target", "Reference", "Proportion")
+prop_merge <- merge(proportion, isolateInformation, by.x="Reference", by.y = "Isolate", all.x=TRUE)
+
+  sum_location <- prop_merge %>% group_by(Country) %>%
+    summarise(
+      num.isolates = n(),
+      sum.prop = sum(Proportion),
+      avg.proportion = mean(Proportion)
+    )
+
+  sum_location$reWeighted <- sum_location$avg.proportion/sum(
+    sum_location$avg.proportion)
+  sum_location$Country <- factor(sum_location$Country
+                                       , levels = c("Ape", "Uganda", "Ghana",
+                                                    "Gabon", "Iran", "Thailand",
+                                                    "PNG", "Peru", "FrenchGuiana",
+                                                    "Venezuela", "Colombia"))
+  iso <- gsub(".*proportions/","",f)
+  iso <- gsub("_proportions.txt","",iso)
+  sum_location$Isolate <- rep(iso, nrow(sum_location))
+  avg_proportions <- rbind(avg_proportions, sum_location)
+}
+
+colnames(isolateInformation) <- c("Isolate","Origin")
+avg_proportions <- merge(avg_proportions, isolateInformation, by.x="Isolate", by.y="Isolate", all.x=TRUE)
+
+gg <- ggplot(avg_proportions, aes(x=Isolate, y=reWeighted, fill=Country))
+gg <- gg + facet_grid(Country~Origin, scales = "free_x", space = "free_x")
+gg <- gg + coord_cartesian(ylim=c(0,1))
+gg <- gg + geom_bar(stat = "identity")
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg
+
+```
+
+```{r}
+summary_prop_table <- avg_proportions %>% group_by_(.dots=c("Origin","Country")) %>%
+  summarise(
+    mean=mean(reWeighted),
+    sd=sd(reWeighted)
+  )
+
+summary_prop_table$Origin <- factor(summary_prop_table$Origin
+                                    , levels=c("FrenchGuiana", "Colombia"))
+summary_prop_table$Country <- factor(summary_prop_table$Country
+                                    , levels=c("Uganda", "Ghana","Gabon", "Iran", "Thailand","PNG","FrenchGuiana","Colombia"))
+
+gg <- ggplot(summary_prop_table, aes(Country, Origin, fill = mean)) 
+gg <- gg + geom_raster()
+gg <- gg + scale_fill_gradientn(colours=c("#FFFFFFFF","#FF0000FF"))
+gg <- gg + geom_text(data=summary_prop_table,aes(x=Country, y=Origin
+                    ,label=paste(sprintf("%0.3f", round(mean, digits = 3))
+                                 , sprintf("%0.4f", round(sd, digits = 4))
+                                 , sep = "±"))
+                    , size=3)
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg
+```
 
 ###Investigate the recombination hotspots
 ```{python, eval=FALSE}
