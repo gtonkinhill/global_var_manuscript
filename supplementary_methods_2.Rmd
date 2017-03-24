@@ -286,6 +286,23 @@ gg
 ```
 
 ```{r}
+colombia_props <- avg_proportions[avg_proportions$Origin=="Colombia",]
+colombia_africa_props <- colombia_props[colombia_props$Country %in% c("Uganda", "Gabon", "Ghana"),]
+colombia_africa_props <- colombia_africa_props %>%
+  group_by(Isolate) %>%
+  summarise(africa_sum_reWeighted = sum(reWeighted))
+colombia_frenchGuiana_Africa <- colombia_props[colombia_props$Country == "FrenchGuiana",]
+colombia_frenchGuiana_Africa <- colombia_frenchGuiana_Africa[,c("Isolate","reWeighted")]
+colombia_frenchGuiana_Africa <- merge(colombia_frenchGuiana_Africa, colombia_africa_props,
+                                      by.x="Isolate", by.y = "Isolate",
+                                      all = TRUE)
+
+wilcox.test(colombia_frenchGuiana_Africa$reWeighted,
+            colombia_frenchGuiana_Africa$africa_sum_reWeighted,
+            paired = TRUE)
+```
+
+```{r}
 summary_prop_table <- avg_proportions %>% group_by_(.dots=c("Origin","Country")) %>%
   summarise(
     mean=mean(reWeighted),
@@ -857,7 +874,7 @@ write.table(noPeruVenn_otuMatrix, file=outfile
 ```
 
 Now we want to search the types that are singletons that are found in Colombia and French Guiana.
-```{r}
+```{r, eval=FALSE}
 otuTable <- fread(outfile
       , data.table = FALSE
       , header = TRUE)
@@ -935,6 +952,18 @@ done
 
 Now we can plot the results
 ```{r}
+isolateInformation <- fread("./data/isolate_information.csv"
+                            , header=TRUE
+                            , data.table = FALSE)
+#Add in country information
+isolateInformation$Country <- unlist(lapply(isolateInformation$Location
+                                            , function(x) {
+                                              str_split(x,  "_", n=2)[[1]][[1]]}))
+
+#Remove duplicate entries of isolates that have been sequenced more than once
+isolateInformation <- isolateInformation[!duplicated(isolateInformation$Isolate),]
+isolateInformation <- isolateInformation[,c("Isolate", "Country")]
+
 #Proportion file
 prop_files <- Sys.glob("./mosaic_processed_data/SA_Ven_Peru_proportions/*proportions.txt")
 avg_proportions <- data.frame()

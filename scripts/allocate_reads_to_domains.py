@@ -67,7 +67,7 @@ def main():
     , help="location of output directory."
     , required=True)
 
-  parser.add_argument('--verbose', dest='verbose'
+  parser.add_argument('--verbose', dest='verbose', action='store_true'
     , help="turn on verbose output (default=False)"
     , default=False)
 
