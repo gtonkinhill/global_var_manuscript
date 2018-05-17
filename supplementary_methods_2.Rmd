@@ -160,12 +160,38 @@ Iterate until convergence:
 
 The algorithm converged after 7 iterations.
 
+Each iteration was run as on a high performing computing cluster. The scripts used for this stage are available in the hpc_scripts sub folder.
+```{bash, eval=FALSE}
+for FILE in *_run*.fasta;
+do
+fasta=`basename $1`
+mosaic -seq $1 -aa -tag $fasta -group 2 db target -target target -del del -eps eps -rec 0.0 > ${fasta}_output.log
+done
+```
+
+The `estimate_transition_probs_frm_viterbi.py` script was then used to estimate the updated paramters between runs and the mosaic code was recompiled with the updated paramters.
+
 This gives us the non-jump parameters which we fix when estimating a likelihood surface for the jump parameter. Due to computational constraints we could not estimate the jump parameter by computing an all-vs-all search at each parameter point. Thus we resort to searching 1000 randomly chosen target sequences against the entire data set. That is 1000-vs-all. First, 1000 sequences are randomly selected as targets.
 
 ```{bash, eval=FALSE}
 cd mosaic_processed_data
 python ../scripts/random_target_sample.py Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta
 cd ..
+```
+
+Now run mosaic for different jump parameters to estimate a likelihood surface. This was also run on a HPC but an outline of the commands is given below.
+
+```{bash, eval=FALSE}
+for jump in $(seq 0.00 0.001 0.1);
+do
+
+fasta=Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion_randomSampleTargetSize1000.fasta
+
+tag=Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion_randomSampleTargetSize1000_jump${jump}
+
+mosaic -seq $fasta -aa -tag $tag -group 2 db target -target target -del 0.0166765773591 -eps 0.273305573191 -rec $jump > /home/tonkin-hill.g/full_mosaic_run/results_jump/${tag}_output.log
+
+done
 ```
 
 ```{bash, eval=FALSE}
@@ -216,9 +242,13 @@ ggplot(llk_df, aes(x=jump, y=llk, group=1)) +
 rownames(llk_matrix)[which.max(rowSums(llk_matrix, na.rm = TRUE))]
 ```
 
-We can now run the full model in an all vs all fashion
+We can now run the full model in an all vs all fashion. This was again run on a HPC cluster.
 ```{bash, eval=FALSE}
-
+for FILE in *_run*.fasta;
+do
+fasta=`basename $1`
+mosaic -ma -seq $1 -aa -tag $fasta -group 2 db target -target target -del 0.0166765773591 -eps 0.273305573191 -rec 0.014 > ${fasta}_output.log
+done
 ```
 
 Now calculate the proportions
