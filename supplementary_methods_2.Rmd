@@ -29,7 +29,7 @@ library(dplyr)
 ##Mosaic model
 The mosaic model is best run on protein sequence as the alignments will be more interpretable. It will also be more efficient as the algorithm complexity is of order $N^2 l^2$. Furthermore, we only want to compare isolates with isolates from other regions. Thus we remove lab isolates and those sequences that can not be translated. We say a sequence can be translated if the resulting protein sequence has no stop codons.
 
-First we translate all sequences to identify those that can not be succesfully translated.
+First we translate all sequences to identify those that can not be successfully translated.
 ```{python, eval=FALSE}
 from mungo.sequence import sixFrameTranslation
 from mungo.fasta import FastaReader
@@ -69,7 +69,7 @@ print (str((100.0*badSeqs)/seqCount) + "percent or "
 ```
 
 97.14% of the sequences were successfully translated. 
-We would now like to filter out those that did not translate along with the labratory isolates before clustering the remaining sequences.
+We would now like to filter out those that did not translate along with the laboratory isolates before clustering the remaining sequences.
 
 ```{python, eval=FALSE}
 from mungo.fasta import FastaReader
@@ -96,7 +96,7 @@ with open("./mosaic_data/DNA_NoLab_translateable_combined_454_tessema.fasta", 'w
       outfile.write(">"+h+"\n"+s+"\n") 
 ```
 
-We only want to look at a single copy of DBLa type as this will drastically reduce the computational complexity of the problem. We cluster the filtered DNA sequences at 96% id using the same pipline as was used in the binary type analysis.
+We only want to look at a single copy of DBLa type as this will drastically reduce the computational complexity of the problem. We cluster the filtered DNA sequences at 96% id using the same pipeline as was used in the binary type analysis.
 
 ```{bash, eval=FALSE}
 python ./scripts/clusterDBLa.py -o ./mosaic_data/ -r ./mosaic_data/DNA_NoLab_translateable_combined_454_tessema.fasta --cpu 30 --verbose
@@ -117,7 +117,7 @@ with open("./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centro
       outfile.write(">"+h+"\n"+s+"\n")
 ```
 
-The sequences from Tessema et al cover a larger region of the DBLa domain. In inferring the mixtures of each isolate we will later assume that each sequence is covering approximately the same region. Cosequently, we need to trim the sequences of Tessema et al to match those in the 454 data. This was not important in the DNA clustering as the pipeline we used allowed for terminal gaps at no cost. To achieve this we align all the protein sequences using gismo which was found to handle VAR protein sequences better than many other aligners.
+The sequences from Tessema et al cover a larger region of the DBLa domain. In inferring the mixtures of each isolate we will later assume that each sequence is covering approximately the same region. Consequently, we need to trim the sequences of Tessema et al to match those in the 454 data. This was not important in the DNA clustering as the pipeline we used allowed for terminal gaps at no cost. To achieve this we align all the protein sequences using gismo which was found to handle VAR protein sequences better than many other aligners.
 
 ```{bash, eval=FALSE}
 ./scripts/gismo_unlimited \ ./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids.fasta \ -maxseq=40000
@@ -139,9 +139,9 @@ with open("./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centro
     outfile.write(">"+h+"\n"+s+"\n")
 ```
 
-Now we have representative protein sequences for each DBLa type we can start to fit the jumpping hidden Markov model. Unfortunately the complete Baum-Welch algorithm  requires a number of full all-vs-all searches using the forward-backward algorithms and this is very computaitonaly instesive. Due to computational contraints this was impractable. Consequently, the slightly less accurate but much fast viterbi training algorithm was used.
+Now we have representative protein sequences for each DBLa type we can start to fit the jumping hidden Markov model. Unfortunately the complete Baum-Welch algorithm  requires a number of full all-vs-all searches using the forward-backward algorithms and this is very computationaly intensive. Due to computational constraints this was impracticable. Consequently, the slightly less accurate but much faster viterbi training algorithm was used.
 
-We first split the dataset into subset to be searched in parralel on our computing cluster.
+We first split the data set into subset to be searched in parallel on our computing cluster.
 ```{bash, eval=FALSE}
 mkdir mosaic_processed_data
 cp ./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta ./mosaic_processed_data/
@@ -156,16 +156,42 @@ Iterate until convergence:
 1) Compute the Viterbi paths of all sequences
 2) Count frequencies of events and calculate new parameters
 3) Update -> 1) 
-4) Stop when the major paramters del and eps change by less than 1%. 
+4) Stop when the major parameters del and eps change by less than 1%. 
 
 The algorithm converged after 7 iterations.
 
-This gives us the non-jump parameters which we fix when estimating a likelihood surface for the jump parameter. Due to computational constraints we could not estimate the jump parameter by computing and all-vs-all search at each parameter point. Thus we resort to searching 1000 randomly chosen target sequences against the entire dataset. That is 1000-vs-all. First, 1000 sequences are randomly selected as targets.
+Each iteration was run as on a high performing computing cluster. The scripts used for this stage are available in the hpc_scripts sub folder.
+```{bash, eval=FALSE}
+for FILE in *_run*.fasta;
+do
+fasta=`basename $1`
+mosaic -seq $1 -aa -tag $fasta -group 2 db target -target target -del del -eps eps -rec 0.0 > ${fasta}_output.log
+done
+```
+
+The `estimate_transition_probs_frm_viterbi.py` script was then used to estimate the updated paramters between runs and the mosaic code was recompiled with the updated paramters.
+
+This gives us the non-jump parameters which we fix when estimating a likelihood surface for the jump parameter. Due to computational constraints we could not estimate the jump parameter by computing an all-vs-all search at each parameter point. Thus we resort to searching 1000 randomly chosen target sequences against the entire data set. That is 1000-vs-all. First, 1000 sequences are randomly selected as targets.
 
 ```{bash, eval=FALSE}
 cd mosaic_processed_data
 python ../scripts/random_target_sample.py Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta
 cd ..
+```
+
+Now run mosaic for different jump parameters to estimate a likelihood surface. This was also run on a HPC but an outline of the commands is given below.
+
+```{bash, eval=FALSE}
+for jump in $(seq 0.00 0.001 0.1);
+do
+
+fasta=Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion_randomSampleTargetSize1000.fasta
+
+tag=Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion_randomSampleTargetSize1000_jump${jump}
+
+mosaic -seq $fasta -aa -tag $tag -group 2 db target -target target -del 0.0166765773591 -eps 0.273305573191 -rec $jump > /home/tonkin-hill.g/full_mosaic_run/results_jump/${tag}_output.log
+
+done
 ```
 
 ```{bash, eval=FALSE}
@@ -216,9 +242,13 @@ ggplot(llk_df, aes(x=jump, y=llk, group=1)) +
 rownames(llk_matrix)[which.max(rowSums(llk_matrix, na.rm = TRUE))]
 ```
 
-We can now run the full model in an all vs all fashion
+We can now run the full model in an all vs all fashion. This was again run on a HPC cluster.
 ```{bash, eval=FALSE}
-
+for FILE in *_run*.fasta;
+do
+fasta=`basename $1`
+mosaic -ma -seq $1 -aa -tag $fasta -group 2 db target -target target -del 0.0166765773591 -eps 0.273305573191 -rec 0.014 > ${fasta}_output.log
+done
 ```
 
 Now calculate the proportions
@@ -387,7 +417,7 @@ print (str((100.0*badSeqs)/seqCount) + "percent or "
   + str(badSeqs) + " out of " + str(seqCount) + " were not translated.")
 ```
 
-Conveniently these sequences cover the same region as our protein alignment and thus no trimming is required. We now want to search them against themselves and all other global genes. First we need to create a sequence file to perfrom the search.
+Conveniently these sequences cover the same region as our protein alignment and thus no trimming is required. We now want to search them against themselves and all other global genes. First we need to create a sequence file to perform the search.
 ```{bash, eval=FALSE}
 mkdir ./mosaic_processed_data/ape_data/
 cat ./mosaic_data/Protein_recheniwoi_from_larremore_renamed.fasta ./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids_reducedRegion.fasta > ./mosaic_processed_data/ape_data/combined_ape_454.fasta
@@ -515,7 +545,7 @@ First combine P.Gaboni, P.Billcolinsi and the mix of P.praefalciparum and P.Olde
 mkdir ape_processed_data
 ```
 
-First we collect all the sequences before translating them into protein sequence and remove those that can not be succesfully translated.
+First we collect all the sequences before translating them into protein sequence and remove those that can not be successfully translated.
 ```{python, eval=FALSE}
 from mungo.sequence import sixFrameTranslation
 from mungo.fasta import FastaReader
@@ -576,7 +606,7 @@ with open("./ape_processed_data/DNA_combined_ape_3d7_DD2_HB3.fasta", 'w') as out
     if h in successfully_translated:
       outfile.write(">"+h+"\n"+s+"\n") 
 ```
-98.74% of the sequences were successfuly translated.
+98.74% of the sequences were successful translated.
 
 ```{bash, eval=FALSE}
 python ./scripts/clusterDBLa.py -o ./ape_processed_data/ -r ./ape_processed_data/DNA_combined_ape_3d7_DD2_HB3.fasta --cpu 30 --verbose
