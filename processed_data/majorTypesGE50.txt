@@ -1,100 +1,100 @@
-UG10201.c132f3s3-frenchguiana;gabon;ghana;uganda;kenya;malawi;papua new guinea
-BK725.c69f6s14-frenchguiana;gabon;ghana;png;thailand;uganda;tanzania;papua new guinea;kenya
-BK954.c20f5s6-frenchguiana;gabon;ghana;iran;png;thailand;uganda;venezuela;kenya;solomon islands;tanzania;indonesia;papua new guinea;sudan;mali;malawi
-UG70623.c167f4s5-frenchguiana;gabon;ghana;thailand;uganda;sudan;kenya;brazil;malawi
-UG50465.c21f37s44-frenchguiana;iran;peru;uganda;venezuela;thailand;kenya
-G3st21.c2f16s20-frenchguiana;gabon;ghana;peru;thailand;uganda;brazil;kenya;malawi
-BK911.c46f5s7-gabon;ghana;png;thailand;uganda;senegal;papua new guinea
-MRS0695.c6f21s28-gabon;ghana;png;thailand;uganda;brazil;tanzania;papua new guinea;malawi;kenya;philippines
-UG60189.c96f3s3-frenchguiana;gabon;ghana;iran;peru;thailand;uganda;venezuela;kenya;malawi;papua new guinea
-Gc47.c18f81s112-colombia;frenchguiana;gabon;ghana;iran;peru;thailand;uganda;venezuela;brazil;kenya;tanzania;malawi
-G3st34.c7f13s18-frenchguiana;gabon;ghana;peru;uganda;brazil
-BK258.c56f4s5-gabon
-BK514.c4f24s28-gabon;ghana;uganda
-BK586.c1f28s36-gabon;ghana;uganda
-BK362.c79f5s6-gabon;ghana;uganda;kenya
-BK950.c54f6s7-gabon;ghana;uganda;kenya
-UG70723.c44f17s30-gabon;ghana;uganda;kenya
-MRS0612.c113f6s7-gabon;ghana;uganda;kenya
-BK277.c5f11s12-gabon;ghana
-UG60620.c44f12s18-gabon;ghana;iran;thailand;uganda;kenya;zimbabwe;papua new guinea
-MRS0290.c29f15s18-gabon;ghana;iran;png;thailand;uganda;kenya;tanzania;cape verde;papua new guinea
-G3st34.c6f14s18-frenchguiana;gabon;ghana;peru;uganda;venezuela
-BK471.c0f29s68-gabon;ghana;iran;png;thailand;uganda;solomon islands;tanzania;papua new guinea;senegal;kenya
-MRS0357.c13f22s35-gabon;ghana;thailand;uganda;kenya
-G3st32.c34f3s4-frenchguiana;gabon;ghana;iran;peru;thailand;uganda;venezuela;kenya;senegal;china
-MRS0027.c11f28s34-frenchguiana;gabon;ghana;peru;uganda;venezuela;kenya
-UG50598.c77f4s7-gabon;ghana;iran;thailand;uganda;kenya;tanzania
-IR18.c23f29s40-gabon;ghana;iran;uganda;kenya;india
-UG30334.c6f28s77-colombia;gabon;ghana;iran;thailand;uganda;solomon islands;philippines;papua new guinea;sudan;kenya;tanzania
-Gc38.c2f90s125-frenchguiana;gabon;ghana;peru;png;uganda;venezuela;honduras;indonesia;papua new guinea;zimbabwe;kenya;malawi
-BK863.c37f6s11-gabon;ghana;iran;uganda;kenya
-MRS0431.c41f4s14-gabon;ghana;uganda;#n/a
-UG70723.c97f9s15-gabon;ghana;png;uganda;kenya;papua new guinea
-MRS0079.c37f6s6-gabon;ghana;iran;png;thailand;uganda;brazil;solomon islands;papua new guinea;senegal;kenya
-BK400.c44f10s19-gabon;ghana;thailand;uganda;kenya
-UG10141.c37f25s27-gabon;ghana;uganda;kenya
-IR14.c30f12s15-gabon;ghana;iran;uganda;kenya
-G3st31.c15f15s22-frenchguiana;gabon;ghana;iran;peru;venezuela;#n/a
-UG80490.c19f15s33-gabon;ghana;png;uganda;kenya;senegal;papua new guinea
-BK1005.c37f5s6-gabon;ghana;uganda;zimbabwe
-BK555.c90f6s6-gabon;ghana;thailand;uganda;venezuela;brazil;kenya;papua new guinea
-BK1065.c47f7s7-gabon;ghana;png;uganda;kenya;senegal;indonesia;papua new guinea
-MRS0645.c9f4s10-gabon;ghana;uganda;indonesia;papua new guinea;mali
-Gc39.c23f9s13-frenchguiana;gabon;ghana;uganda;kenya
-V15.c24f19s26-colombia;frenchguiana;gabon;ghana;peru;png;uganda;venezuela;brazil;kenya;zimbabwe;papua new guinea
-UG30639.c18f8s13-frenchguiana;gabon;ghana;iran;thailand;uganda;venezuela;kenya;tanzania;mali
-MRS0662.c9f20s36-gabon;ghana;thailand;uganda;kenya;senegal
-UG70349.c10f40s52-gabon;ghana;uganda;kenya
-UG70489.c66f7s12-gabon;ghana;png;uganda;senegal;papua new guinea
-MRS0664.c22f7s10-gabon;ghana;uganda;tanzania
-Gc37.c36f14s24-frenchguiana;gabon;ghana;peru;uganda;venezuela
-UG10602.c41f17s22-frenchguiana;gabon;ghana;uganda;kenya;cape verde;thailand
-RN72.c18f102s136-gabon;ghana;thailand;uganda;kenya;tanzania;malawi;mali
-UG80637.c13f24s29-gabon;ghana;png;thailand;uganda;solomon islands;papua new guinea
-UG10162.c35f14s22-gabon;ghana;uganda;kenya;tanzania;malawi
-UG60456.c167f3s3-gabon;ghana;png;thailand;uganda;kenya;papua new guinea
-MRS0236.c118f6s6-frenchguiana;gabon;ghana;iran;peru;thailand;uganda;venezuela;brazil;kenya;malawi
-UG70112.c125f7s7-gabon;ghana;uganda;kenya
-G3st34.c3f18s23-frenchguiana;gabon;ghana;peru;venezuela
-UG10432.c125f4s4-frenchguiana;gabon;ghana;peru;thailand;uganda;brazil;papua new guinea;kenya;venezuela;malawi
-UG30804.c90f3s3-ghana;uganda;sudan;kenya;malawi
-BK362.c4f30s43-gabon;ghana;iran;uganda;kenya;senegal;tanzania;malawi
-Gc47.c11f90s136-frenchguiana;gabon;png;uganda;brazil;papua new guinea
-MRS0279.c60f12s21-gabon;ghana;thailand;uganda
-P32.c14f11s16-frenchguiana;gabon;ghana;iran;peru;png;thailand;uganda;venezuela;kenya;senegal;papua new guinea
-UG70268.c62f9s14-gabon;ghana;uganda;kenya;cape verde;malawi
-MRS0344.c3f48s64-gabon;ghana;uganda;papua new guinea
-UG50698.c29f14s17-gabon;ghana;thailand;uganda;kenya;malawi
-G3st28.c2f16s25-frenchguiana;gabon;ghana;peru;uganda;kenya;senegal;venezuela;tanzania
-UG50784.c12f32s44-gabon;ghana;uganda;kenya;tanzania
-G3st19.c14f25s36-frenchguiana;gabon;peru;uganda;venezuela;brazil;kenya
-UG60375.c111f3s4-gabon;ghana;uganda;kenya;senegal
-UG10393.c34f15s33-colombia;gabon;ghana;iran;thailand;uganda;kenya
-Gc9.c35f25s33-frenchguiana;gabon;ghana;peru;thailand;uganda;venezuela;brazil
-G3st37.c32f8s11-frenchguiana;gabon;peru;uganda;venezuela;brazil;senegal
-UG30800.c61f5s7-gabon;ghana;png;uganda;kenya;tanzania;papua new guinea
-UG70720.c90f6s7-gabon;ghana;thailand;uganda;kenya
-MRS0100.c93f3s3-gabon;ghana;iran;uganda;kenya;tanzania;papua new guinea;mali
-Gc43.c72f5s6-colombia;frenchguiana;gabon;ghana;iran;peru;thailand;uganda;venezuela;brazil;tanzania;papua new guinea;mali;kenya;cameroon;malawi
-UG30135.c66f7s10-ghana;iran;png;thailand;uganda;kenya;papua new guinea
-UG50730.c15f42s58-frenchguiana;gabon;ghana;iran;peru;png;thailand;uganda;venezuela;honduras;papua new guinea;senegal;kenya;malawi
-UG80239.c141f5s6-gabon;ghana;iran;thailand;uganda;brazil;kenya
-G3st18.c54f4s4-frenchguiana;gabon;ghana;peru;uganda;brazil;kenya;tanzania
-G3st5.c21f74s99-frenchguiana;gabon;ghana;uganda;venezuela
-UG30792.c13f48s77-ghana;uganda;#n/a
-G3st7.c57f3s3-frenchguiana;gabon;ghana;peru;uganda;venezuela;brazil
-MZ193.c7f61s71-frenchguiana;gabon;ghana;peru;venezuela;brazil
-G3st36.c38f7s8-frenchguiana;gabon;ghana;peru;uganda;venezuela;#n/a
-G3st10.c4f22s32-frenchguiana;gabon;ghana;peru;uganda;venezuela;brazil
-UG70088.c14f40s61-colombia;frenchguiana;ghana;peru;uganda;venezuela;kenya
-Gc38.c55f10s17-frenchguiana;peru;uganda;brazil
-P19.c24f23s33-frenchguiana;gabon;ghana;peru;uganda;venezuela;#n/a
-Gc31.c27f3s3-frenchguiana;gabon;peru;venezuela;#n/a
-G3st30.c25f12s14-frenchguiana;peru;venezuela;brazil
-Gc58.c30f7s17-frenchguiana;gabon;peru;brazil;venezuela
-G3st16.c6f6s11-frenchguiana;gabon;peru;venezuela;brazil
-G3st5.c30f54s73-frenchguiana;peru;venezuela;brazil
-Gc58.c9f22s25-frenchguiana;gabon;brazil
-MZ193.c20f30s41-frenchguiana;gabon;peru;venezuela;brazil
-Gc28.c5f39s57-colombia;frenchguiana;gabon;peru;venezuela
+UG10201.c132f3s3
+BK725.c69f6s14
+BK954.c20f5s6
+UG70623.c167f4s5
+UG50465.c21f37s44
+G3st21.c2f16s20
+BK911.c46f5s7
+MRS0695.c6f21s28
+UG60189.c96f3s3
+Gc47.c18f81s112
+G3st34.c7f13s18
+BK258.c56f4s5
+BK514.c4f24s28
+BK586.c1f28s36
+BK362.c79f5s6
+BK950.c54f6s7
+UG70723.c44f17s30
+MRS0612.c113f6s7
+BK277.c5f11s12
+UG60620.c44f12s18
+MRS0290.c29f15s18
+G3st34.c6f14s18
+BK471.c0f29s68
+MRS0357.c13f22s35
+G3st32.c34f3s4
+MRS0027.c11f28s34
+UG50598.c77f4s7
+IR18.c23f29s40
+UG30334.c6f28s77
+Gc38.c2f90s125
+BK863.c37f6s11
+MRS0431.c41f4s14
+UG70723.c97f9s15
+MRS0079.c37f6s6
+BK400.c44f10s19
+UG10141.c37f25s27
+IR14.c30f12s15
+G3st31.c15f15s22
+UG80490.c19f15s33
+BK1005.c37f5s6
+BK555.c90f6s6
+BK1065.c47f7s7
+MRS0645.c9f4s10
+Gc39.c23f9s13
+V15.c24f19s26
+UG30639.c18f8s13
+MRS0662.c9f20s36
+UG70349.c10f40s52
+UG70489.c66f7s12
+MRS0664.c22f7s10
+Gc37.c36f14s24
+UG10602.c41f17s22
+RN72.c18f102s136
+UG80637.c13f24s29
+UG10162.c35f14s22
+UG60456.c167f3s3
+MRS0236.c118f6s6
+UG70112.c125f7s7
+G3st34.c3f18s23
+UG10432.c125f4s4
+UG30804.c90f3s3
+BK362.c4f30s43
+Gc47.c11f90s136
+MRS0279.c60f12s21
+P32.c14f11s16
+UG70268.c62f9s14
+MRS0344.c3f48s64
+UG50698.c29f14s17
+G3st28.c2f16s25
+UG50784.c12f32s44
+G3st19.c14f25s36
+UG60375.c111f3s4
+UG10393.c34f15s33
+Gc9.c35f25s33
+G3st37.c32f8s11
+UG30800.c61f5s7
+UG70720.c90f6s7
+MRS0100.c93f3s3
+Gc43.c72f5s6
+UG30135.c66f7s10
+UG50730.c15f42s58
+UG80239.c141f5s6
+G3st18.c54f4s4
+G3st5.c21f74s99
+UG30792.c13f48s77
+G3st7.c57f3s3
+MZ193.c7f61s71
+G3st36.c38f7s8
+G3st10.c4f22s32
+UG70088.c14f40s61
+Gc38.c55f10s17
+P19.c24f23s33
+Gc31.c27f3s3
+G3st30.c25f12s14
+Gc58.c30f7s17
+G3st16.c6f6s11
+G3st5.c30f54s73
+Gc58.c9f22s25
+MZ193.c20f30s41
+Gc28.c5f39s57

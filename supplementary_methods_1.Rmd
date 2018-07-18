@@ -32,6 +32,7 @@ library(ape)
 library(pheatmap)
 library(proxy)
 library(knitr)
+library(glmnet)
 
 cols <- c("#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99","#e31a1c","#fdbf6f","#ff7f00","#cab2d6","#6a3d9a","#ffff99","#b15928","#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#b3de69","#fccde5","#d9d9d9","#bc80bd","#ccebc5","#ffed6f")
 ```
@@ -104,6 +105,16 @@ otuMatrix <- otuMatrix[, colSums(otuMatrix) <= MAX_OTUS_PER_ISOLATE]
 #Remove lab isolates
 otuMatrixNoLab <- otuMatrix[,!(colnames(otuMatrix) %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2"))]
 otuMatrixNoLab <- otuMatrixNoLab[rowSums(otuMatrixNoLab) >= MIN_ISOLATE_PER_OTU, ]
+```
+
+Identify which OTU centroids match with the 3D7 refernce for later infestigation.
+```{bash, eval=FALSE}
+usearch -usearch_global ./data/3D7.fasta -db ./data/combined_all_454_noPOR.fasta -id 0.96 -strand both -blast6out ./processed_data/3D7_vs_all_blast6out.txt -maxaccepts 0 -maxrejects 0
+```
+
+```{r}
+otu_match_3D7 <- unique(fread("./processed_data/3D7_vs_all_blast6out.txt", data.table = FALSE)[,2])
+sum(colnames(otuMatrixNoLab_t) %in% otu_match_3D7)
 ```
 
 We can now look at the number of reads per isolate for the different countries.
@@ -203,37 +214,109 @@ gg <- gg + theme_bw()
 gg
 ```
 
-We can also colour by the number of types to investigate the impact of multiple infections
+Check the impact of ignoring types found in 3D7
 ```{r}
-gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country, alpha=num_types)) + geom_point()
+pca_tsne2 <- prcomp(otuMatrixNoLab_t[,!(colnames(otuMatrixNoLab_t) %in% otu_match_3D7)], scale. = TRUE)
+
+tsne2 <- Rtsne(pca_tsne2$x[,1:30], perplexity=10
+              , check_duplicates=FALSE, pca=FALSE
+              , max_iter=1000, dims = 2)
+
+tsne_df2 <- data.frame(Isolate=rownames(otuMatrixNoLab_t)
+                      , x=tsne2$Y[,1], y=tsne2$Y[,2]
+                      , num_types =rowSums(otuMatrixNoLab_t)
+                      , stringsAsFactors = FALSE)
+tsne_df2 <- merge(tsne_df2, isolateInformation, by.x='Isolate', by.y='Isolate'
+                , all.x=TRUE)
+
+gg <- ggplot(tsne_df2, aes(x=x, y=y, color=Country)) + geom_point()
 gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
 gg <- gg + theme_bw()
+gg
+```
+
+Investigate the impact of possible cofounders
+
+We don't have very high resolution data on age so perhaps the best we can do is split into exclusively young and 'other' datasets.
+
+```{r}
+tsne_df$Age.aggregated <- tsne_df$Age
+young <- (tsne_df$Age.aggregated=='1-12') | (tsne_df$Age.aggregated=='1-5')
+tsne_df$Age.aggregated[young] <- "under12"
+tsne_df$Age.aggregated[!young] <- "All"
+
+gg <- ggplot(tsne_df, aes(x=x, y=y, color=Age.aggregated)) + geom_point()
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
+gg <- gg + theme_bw()
+gg
+```
+
+We can investigate the ability of the different variables to predict the country of origin of an isolate. We make use of multinomial logistic regression with cross validation to assess the ability of each variable to distguish between the different countries.
+
+```{r}
+mod1.cv <- cv.glmnet(data.matrix(tsne_df[,c("x", "y")]), as.vector(tsne_df$Country), family="multinomial", type.measure = "class")
+tsne.error <- mod1.cv$cvm[mod1.cv$lambda.min==mod1.cv$lambda]
+
+x <- model.matrix(Country ~ Disease_Status, tsne_df)
+mod2.cv <- cv.glmnet(x, as.vector(tsne_df$Country), family="multinomial", type.measure = "class")
+disease.status.error <- mod2.cv$cvm[mod2.cv$lambda.min==mod2.cv$lambda]
+
+x <- model.matrix(Country ~ Age.aggregated, tsne_df)
+mod2.cv <- cv.glmnet(x, as.vector(tsne_df$Country), family="multinomial", type.measure = "class")
+age.error <- mod2.cv$cvm[mod2.cv$lambda.min==mod2.cv$lambda]
+
+x <- model.matrix(Country ~ num_types, tsne_df)
+mod2.cv <- cv.glmnet(x, as.vector(tsne_df$Country), family="multinomial", type.measure = "class")
+num.types.error <- mod2.cv$cvm[mod2.cv$lambda.min==mod2.cv$lambda]
+
+plot.df <- data.frame(`Predicition Variable`=c("tSNE 2D", "Disease Status", "Age", "# Unique VAR Types"),
+                      `Misclassification Error`=c(tsne.error, disease.status.error, age.error, num.types.error),
+                      stringsAsFactors = FALSE)
+
+ggplot(plot.df, aes(x=`Predicition.Variable`, y=`Misclassification.Error`)) + geom_col() + 
+  theme_bw() + xlab("Prediction Variable") + ylab("Misclassification Error") +
+  theme(text = element_text(size=15)) 
+```
+
+We can also colour by the number of types to investigate the impact of multiple infections
+
+```{r}
+tsne_df$num_types_range <- cut(tsne_df$num_types, c(0,40,80,120,300))
+gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country, shape=num_types_range)) + geom_point()
+gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
+gg <- gg + theme_bw() + scale_shape_discrete(name="# Unique VAR Types")
 gg
 ```
 
 We can also investigate disease status.
 
 ```{r}
-gg <- ggplot(tsne_df, aes(x=x, y=y, color=Disease_Status)) + geom_point()
+tsne_df$Disease_Status[tsne_df$Disease_Status==""] <- "Unknown"
+gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country, shape=Disease_Status)) + geom_point()
 gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
-gg <- gg + theme_bw()
+gg <- gg + theme_bw() + scale_shape_discrete(name="Disease Status")
 gg
 ```
 
-Age doesn't appear to be an issue.
+We can also investigate age.
 
 ```{r}
-gg <- ggplot(tsne_df, aes(x=x, y=y, color=Age)) + geom_point()
+gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country, shape=Age.aggregated)) + geom_point()
 gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
-gg <- gg + theme_bw()
+gg <- gg + theme_bw() + scale_shape_discrete(name="Age Category")
 gg
 ```
 
 We can also investigate the most conserved DBLa types. First lets look at a histogram of the number of times each DBLa is seen in the global population.
 ```{r}
-h <- hist(rowSums(otuMatrixNoLab), breaks=500, plot = FALSE)
-plot(h$mids, h$counts, log="y")
-abline(v=c(20,50), col='red')
+plot.df <- data.frame(isolate=rownames(otuMatrixNoLab), 
+                      occurence.count=rowSums(otuMatrixNoLab), 
+                      stringsAsFactors = FALSE)
+ggplot(plot.df, aes(x=occurence.count)) + 
+  geom_histogram(bins = 50) +
+  scale_y_sqrt() + theme_bw() +
+  xlab("Count of Individual Type in the Data Set") + 
+  ylab("Number of Unique Types")
 ```
 
 This suggests that the majority of types are seen less than 20 times. We now take a closer look at those seen at least 20 times.
@@ -259,6 +342,7 @@ sum(majorTypeMatrix[grepl("UG10689", rownames(majorTypeMatrix)),])
 ```
 
 There are also a number of types that are very conserved. We now look closer at those seen more than 50 times. We first BLAST the resulting 100 most conserved sequences again NCBI BLAST nucleotide database and manually curate the hits with additional information after filtering based on a pairwise identity of 96% and a coverage threshold of 95%. Additionally we BLAST (megablast 2.2.18) against the var1, var2csa and var3 gene references from Rask et al.
+
 ```{bash, eval=FALSE}
 makeblastdb -dbtype nucl -in ./data/var123_rask2010.fasta -out ./processed_data/blastdb_var123
 megablast -m 8 -e 10 -i ./processed_data/majorTypesGE50.fasta -o ./processed_data/blast_var123_vs_majorTyepGE50.txt -d ./processed_data/blastdb_var123
@@ -304,11 +388,12 @@ annotation_row$Countries <- unlist(lapply(str_split(str_to_lower(paste(annotatio
                , pattern = ";")
                , function(x){paste(unique(x), collapse = ";")}) )
 annotation_row <- annotation_row[match(rownames(majorTypeMatrix), annotation_row$SeqID),]
-rownames(majorTypeMatrix) <- paste(annotation_row$shortID, annotation_row$Countries, sep="-")
+rownames(majorTypeMatrix) <- annotation_row$shortID #paste(annotation_row$shortID, annotation_row$Countries, sep="-")
 annotation_row <- data.frame(row.names = rownames(majorTypeMatrix),
                              Annotation = annotation_row$Annotation,
                              DomainType = annotation_row$domain,
                              stringsAsFactors = FALSE)
+annotation_row$Annotation <- NULL
 
 
 # Specify colors
@@ -329,7 +414,8 @@ pheatmap(majorTypeMatrix, cluster_cols = FALSE
          , show_rownames = TRUE
          , fontsize_row=4
          , show_colnames = FALSE
-         , annotation_colors=ann_colors)
+         , annotation_colors=ann_colors
+         , treeheight_row = 0)
 
 occurence_table <- data.frame(Isolate=rownames(annotation_row), total=rowSums(majorTypeMatrix), stringsAsFactors = FALSE)
 occurence_table <- merge(occurence_table, annotation_row, by.x="Isolate", by.y=0)
@@ -411,6 +497,10 @@ populations$Isolate <- 1:nrow(populations)
 A quick look at the outcome of the cross validation method.
 ```{r}
 bestK(admix)
+plot.df <- bestK(admix, plot = FALSE)
+ggplot(plot.df, aes(x=K, y=CVerror)) + geom_point(size=7) +
+  theme_bw() + xlab("K") + ylab("Cross Validation Error") +
+  theme(text = element_text(size=17)) 
 ```
 
 This indicates that with two hidden populations we produce the smallest cross validation error. This split is consistent with the split between the African and non-African isolates. The large seperation between Africa and non-Africa is consistent with what has been seen in non-VAR population structure analyses and is also usually observed in analyses of human population structure. Lets look at this split.
@@ -555,13 +645,21 @@ We can now attempt to choose an appropriate value of l. First let look at word u
 ```{r}
 word_usage <- fread("./processed_data/ffp_word_usage.txt",
                     data.table = FALSE)
-plot(word_usage)
+ggplot(word_usage, aes(x=V1, y=V2)) + geom_point() +
+  theme_bw() + 
+  xlab("k-mer feature length") +
+  ylab("k-mer vocabulary size") +
+  theme(text = element_text(size=15))
 ```
 
 ```{r}
 entropy <- fread("./processed_data/ffp_entropy_profile.txt",
                     data.table = FALSE)
-plot(entropy)
+ggplot(entropy, aes(x=V1, y=V2)) + geom_point() +
+  theme_bw() + 
+  xlab("k-mer feature length") +
+  ylab("cumlative relative entropy") +
+  theme(text = element_text(size=15))
 ```
 
 Thus a choice of l=20 appears to be appropriate.
@@ -632,6 +730,62 @@ gg <- gg + scale_color_manual(values=as.character(t_cols[names(t_cols) %in% name
                               labels=names(groups)) +
   theme(legend.position="right")
 gg
+```
+
+##Investigating association with severe disease segments
+
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+import sys,os
+
+sig_dbla_clusters = {}
+
+with open("./data/severe_disease_segments_plos_bio_2018.txt", 'rU') as infile:
+	infile.next()
+	for line in infile:
+		line = line.strip().split("\t")
+		if "DBLa" in line[0]:
+			sig_dbla_clusters[line[0]] = line[8].split(",")
+
+
+seq_dict = {}
+for h,s in FastaReader("./data/combined_segments_from_plos_bio_2018.fasta"):
+	seq_dict[h] = s
+
+
+with open("./data/sig_dbla_segment_clusters.fasta", 'w') as outfile:
+	for clust in sig_dbla_clusters:
+		for seq in sig_dbla_clusters[clust]:
+			outfile.write(">" + clust + "\n")
+			outfile.write(seq_dict[seq] + "\n")
+```
+
+```{bash, eval=FALSE}
+usearch -usearch_global ./data/sig_dbla_segment_clusters.fasta -db ./processed_data/combined_454_tessema_renamed_centroids_Protein.fasta -id 0.96 -blast6out ./processed_data/severe_var_plosbio2018_blast6out.txt -maxaccepts 0 -maxrejects 0
+```
+
+Appears only a small number of isolates from PNG include sequences from the severe data set. However these matched a region of the PNG sequences that is not present in the other data sets as the PNG data set was generated using Sanger sequencing. As we are only considering a small portion of the DBLa domain most of the other significant segments could not be searched for.
+
+```{r}
+severe.search.results <- fread("./processed_data/severe_var_plosbio2018_blast6out.txt", data.table = FALSE)
+unique(severe.search.results$V1)
+unique(gsub("\\..*", "", severe.search.results$V2))
+```
+
+We can also search for the homology blocks of Rask et al 2010.
+
+```{bash, eval=FALSE}
+hmmsearch --domtblout ./processed_data/rask_block_search_domtblout.txt --domT 9.7 --nonull2 --nobias ./data/rask_blocks.hmm ./processed_data/combined_454_tessema_renamed_centroids_Protein.fasta > ./processed_data/hmmsearch.out
+```
+
+```{r}
+hmmsearch <- read.table("./processed_data/rask_block_search_domtblout.txt", sep = "" , header = FALSE,
+                     na.strings ="", stringsAsFactors= FALSE, comment.char = "#")
+hmmsearch <- hmmsearch[hmmsearch$V4 %in% c("Rask_block_219", "Rask_block_582", "Rask_block_47",
+                                           "Rask_block_142", "Rask_block_126", "Rask_block_97",
+                                           "Rask_block_121", "Rask_block_141", "Rask_block_150",
+                                           "Rask_block_150", "Rask_block_183"),]
+length(unique(hmmsearch$V1))
 ```
 
 ##Session Information
