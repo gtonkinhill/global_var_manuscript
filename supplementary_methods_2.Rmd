@@ -374,14 +374,21 @@ avg_proportions_noSelf <- avg_proportions[avg_proportions$Country!=avg_proportio
 gg <- ggplot(avg_proportions_noSelf, aes(x=Isolate, y=reWeighted, fill=Country))
 gg <- gg + facet_grid(Country~Origin, scales = "free_x", space = "free_x")
 gg <- gg + coord_cartesian(ylim=c(0,0.5))
-gg <- gg + geom_bar(stat = "identity")
-gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg <- gg + geom_bar(stat = "identity") + 
+  theme_bw() + theme(axis.text.x=element_blank(),
+                     axis.ticks.x=element_blank()) +
+  ylab("Inferred Mixture Proportion") + 
+  theme(strip.text.x = element_text(angle=90),
+        strip.text.y = element_text(angle=0)) +
+  theme(text = element_text(size=15))
 gg
 ```
 
 ##Ape parasite
+
 It is also interesting to look out how the Ape reichenowi isolate from Larremore et al looks.
 First we need to reformat the reichenowi sequences.
+
 ```{python, eval=FALSE}
 from mungo.fasta import FastaReader
 from mungo.sequence import sixFrameTranslation
@@ -695,6 +702,7 @@ gg <- gg + facet_grid(Species~Origin, scales = "free_x", space = "free_x")
 gg <- gg + coord_cartesian(ylim=c(0,1))
 gg <- gg + geom_bar(stat = "identity")
 gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg <- gg + ylab("Proportion match found by JHMM")
 gg
 
 ```
