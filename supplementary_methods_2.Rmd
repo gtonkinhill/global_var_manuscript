@@ -17,6 +17,7 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8,
 ```
 
 ##Load libraries
+
 ```{r}
 library(data.table)
 library(stringr)
@@ -26,6 +27,11 @@ library(boot)
 library(ggcorrplot)
 library(reshape2)
 library(dplyr)
+
+colscale <-  c("#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99","#e31a1c","#fdbf6f","#ff7f00","#cab2d6","#6a3d9a","#b15928")
+names(colscale) <- c("Colombia", "FrenchGuiana", "Gabon", "Ghana", "Iran", "Peru", "PNG", "Thailand", "Uganda", "Venezuela", "Ape")
+colScale <- scale_colour_manual(name = "Country",values = colscale)
+fillScale <- scale_fill_manual(name = "Country",values = colscale)
 ```
 
 ##Mosaic model
@@ -319,24 +325,62 @@ ggplot(avg_proportions, aes(x=Isolate, y=reWeighted, fill=Country)) +
   ylab("Inferred Mixture Proportion") + 
   theme(strip.text.x = element_text(angle=90),
         strip.text.y = element_text(angle=0)) +
-  theme(text = element_text(size=15))
+  theme(text = element_text(size=15)) + fillScale
 
 ```
 
 ```{r}
-colombia_props <- avg_proportions[avg_proportions$Origin=="Colombia",]
-colombia_africa_props <- colombia_props[colombia_props$Country %in% c("Uganda", "Gabon", "Ghana"),]
-colombia_africa_props <- colombia_africa_props %>%
-  group_by(Isolate) %>%
-  summarise(africa_sum_reWeighted = sum(reWeighted))
-colombia_frenchGuiana_Africa <- colombia_props[colombia_props$Country == "FrenchGuiana",]
-colombia_frenchGuiana_Africa <- colombia_frenchGuiana_Africa[,c("Isolate","reWeighted")]
-colombia_frenchGuiana_Africa <- merge(colombia_frenchGuiana_Africa, colombia_africa_props,
-                                      by.x="Isolate", by.y = "Isolate",
-                                      all = TRUE)
+model.data.df <- fread("./data/isolate_information.csv"
+                            , header=TRUE
+                            , data.table = FALSE)
+#Add in country information
+model.data.df$Country <- unlist(lapply(model.data.df$Location
+                                            , function(x) {
+                                              str_split(x,  "_", n=2)[[1]][[1]]}))
 
-wilcox.test(colombia_frenchGuiana_Africa$reWeighted,
-            colombia_frenchGuiana_Africa$africa_sum_reWeighted,
+#Remove duplicate entries of isolates that have been sequenced more than once
+model.data.df <- model.data.df[!duplicated(model.data.df$Isolate),]
+model.data.df$Disease_Status[model.data.df$Disease_Status==""] <- "Uncomplicated"
+
+temp.df <- dcast(avg_proportions, Isolate ~ Country, value.var = "sum.prop")
+model.data.df <- merge(model.data.df, temp.df, by.x="Isolate", by.y = "Isolate", all.y = TRUE)
+
+#get number of types per isolate
+otuTable <- fread("./processed_data/combined_454_tessema_renamed_otuTable_binary.txt"
+                  , data.table = FALSE
+                  , header=TRUE)
+otuMatrix <- as.matrix(otuTable[,2:ncol(otuTable)])
+n.types <- colSums(otuMatrix)
+
+model.data.df$n.types <- n.types[match(model.data.df$Isolate,names(n.types))]
+
+library(nnet)
+test <- multinom(Country ~ Uganda + Ghana + Gabon + Iran + Thailand + PNG + 
+                   Peru + FrenchGuiana + Venezuela + Colombia + Disease_Status + n.types, 
+                 data = model.data.df)
+summary(test)
+z <- summary(test)$coefficients/summary(test)$standard.errors
+p <- (1 - pnorm(abs(z), 0, 1)) * 2
+p
+
+
+# library(afex)
+# set_sum_contrasts() # use sum coding, necessary to make type III LR tests valid
+# library(car)
+# Anova(test,type="III")
+```
+
+This indicates that the overiding signal is due to the isolates country of origin with the number of types having a significant but very small effect on the propotions found to have originated from Ghana. 
+
+```{r}
+colombia_props <- avg_proportions[avg_proportions$Origin=="Colombia",]
+colombia_props <- colombia_props %>% group_by(Isolate) %>% summarise(
+  african.prop = sum(reWeighted[Country %in% c("Uganda", "Gabon", "Ghana")]),
+  s.american = sum(reWeighted[Country %in% c("FrenchGuiana", "Peru", "Venezuela")])
+)
+
+wilcox.test(colombia_props$african.prop,
+            colombia_props$s.american,
             paired = TRUE)
 ```
 
@@ -353,21 +397,21 @@ summary_prop_table$Origin <- factor(summary_prop_table$Origin
 summary_prop_table$Country <- factor(summary_prop_table$Country
                                     , levels=levels)
 
-gg <- ggplot(summary_prop_table, aes(Country, Origin, fill = mean)) 
-gg <- gg + geom_raster()
-gg <- gg + scale_fill_gradientn(colours=c("#FFFFFFFF","#FF0000FF"))
-gg <- gg + geom_text(data=summary_prop_table,aes(x=Country, y=Origin
-                    ,label=paste(sprintf("%0.3f", round(mean, digits = 3))
-                                 , sprintf("%0.3f", round(sd, digits = 3))
-                                 , sep = "±"))
-                    , size=3)
-gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-gg <- gg + theme(text = element_text(size=15))
-gg
+ggplot(summary_prop_table, aes(Country, Origin, fill = mean)) + geom_raster() +
+  scale_fill_gradientn(
+                       colours = c('#b2182b','#ef8a62','#fddbc7','#d1e5f0','#67a9cf','#2166ac')) +
+  geom_text(data=summary_prop_table,aes(x=Country, y=Origin
+                                        ,label=paste(sprintf("%0.3f", round(mean, digits = 3))
+                                                     , sprintf("%0.3f", round(sd, digits = 3))
+                                                     , sep = "±"), size=20)
+            , size=3) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(text = element_text(size=20))
+
 ```
 
-
 Now plot without matching to themselves
+
 ```{r}
 avg_proportions_noSelf <- avg_proportions[avg_proportions$Country!=avg_proportions$Origin,]
 
@@ -381,7 +425,7 @@ gg <- gg + geom_bar(stat = "identity") +
   theme(strip.text.x = element_text(angle=90),
         strip.text.y = element_text(angle=0)) +
   theme(text = element_text(size=15))
-gg
+gg + fillScale
 ```
 
 ##Ape parasite
@@ -519,7 +563,7 @@ summ_location$Country <- factor(summ_location$Country
                                        , levels = c("Ape", "Uganda", "Ghana", "Gabon", "Iran", "Thailand", "PNG", "Peru", "FrenchGuiana", "Venezuela", "Colombia"))
 gg <- ggplot(summ_location, aes(x=Country, y=reWeighted, fill=Country))
 gg <- gg + geom_bar(stat = "identity")
-gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
+gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90)) + fillScale
 gg
 ```
 
@@ -550,7 +594,7 @@ summ_location$Country <- factor(summ_location$Country
 gg <- ggplot(summ_location, aes(x=Country, y=reWeighted, fill=Country))
 gg <- gg + geom_bar(stat = "identity")
 gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
-gg
+gg + fillScale
 ```
 
 ####Other Ape parasites
@@ -704,7 +748,6 @@ gg <- gg + geom_bar(stat = "identity")
 gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
 gg <- gg + ylab("Proportion match found by JHMM")
 gg
-
 ```
 
 ##A closer investigation of South America
@@ -855,8 +898,7 @@ gg <- gg + facet_grid(Country~Origin, scales = "free_x", space = "free_x")
 gg <- gg + coord_cartesian(ylim=c(0,1))
 gg <- gg + geom_bar(stat = "identity")
 gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
-gg
-
+gg + fillScale
 ```
 
 ```{r}
@@ -1048,8 +1090,7 @@ gg <- gg + facet_grid(Country~Origin, scales = "free_x", space = "free_x")
 gg <- gg + coord_cartesian(ylim=c(0,1))
 gg <- gg + geom_bar(stat = "identity")
 gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
-gg
-
+gg + fillScale
 ```
 
 ```{r}
@@ -1127,6 +1168,8 @@ with open("./mosaic_data/breakpoint_jump_counts.txt", 'w') as outfile:
 ```
 
 ```{r}
+library(patchwork)
+
 recombination <- unlist(fread("./mosaic_data/breakpoint_jump_counts.txt", data.table = FALSE)[1,])
 lines <- read_lines("./mosaic_data/Protein_NoLab_translateable_combined_454_tessema_centroids.fasta.fa")
 lines <- lines[!grepl("^>.*", lines)]
@@ -1135,16 +1178,33 @@ occupancy <- str_split_fixed(lines, "", n=str_length(lines[[1]]))
 occupancy <- occupancy!="-"
 occupancy <- colSums(occupancy)/nrow(occupancy)
 
+rask_block_aln = data.frame(block=c(79,54,171,161,131,64,210,14,5,60,36,153,88,163),
+left=c(33,33,33,269,118,232,232,113,354,515,460,704,701,701),
+right=c(126,118,50,344,344,328,344,269,433,730,709,730,730,730), stringsAsFactors = FALSE)
+
+gg_block_aln <- ggplot(rask_block_aln, aes(y=factor(block), yend=factor(block), x=left, xend=right)) +
+  geom_segment(size=2) +
+  theme_bw() + ylab("Homology Block") + xlab("Alignment Position") +
+  theme(text = element_text(size=14))
+
 plot_data <- data.frame(position=1:length(recombination)
                         , recombination=recombination
                         , occupancy=occupancy
                         , stringsAsFactors = FALSE)
-plot_data <- melt(plot_data, id.vars = c("position"))
-gg <- ggplot(plot_data, aes(x=position, y=value), fill=variable)
+window_size <- 15
+windows <- lapply(1:(nrow(plot_data)-window_size), function(i) 1:window_size+i)
+avg_recomb_window <- unlist(lapply(windows, function(index) (sum(plot_data$recombination[index])/sum(plot_data$occupancy[index]))/15))
+q <- quantile(avg_recomb_window, c(0.25,0.75))
+outliers <- avg_recomb_window>(q[[2]]+1.5*(q[[2]]-q[[1]]))
+outliers <- unique(unlist(windows[outliers]))
+plot_data$outlier <- (1:nrow(plot_data) %in% outliers) & (plot_data$occupancy>0.2) & (plot_data$recombination>100)
+
+plot_data <- melt(plot_data, id.vars = c("position", "outlier"))
+gg <- ggplot(plot_data, aes(x=position, y=value, col=outlier), fill=variable)
 gg <- gg + geom_bar(stat='identity')
 gg <- gg + facet_wrap(~variable, scales = "free_y", ncol=1)
-gg <- gg + theme_bw()
-gg
+gg <- gg + theme_bw() + xlab("") + theme(text = element_text(size=14))
+gg + gg_block_aln + patchwork::plot_layout(ncol=1)
 ```
 
 ####Session Information

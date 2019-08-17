@@ -33,8 +33,14 @@ library(pheatmap)
 library(proxy)
 library(knitr)
 library(glmnet)
+library(scales)
 
-cols <- c("#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99","#e31a1c","#fdbf6f","#ff7f00","#cab2d6","#6a3d9a","#ffff99","#b15928","#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#b3de69","#fccde5","#d9d9d9","#bc80bd","#ccebc5","#ffed6f")
+colscale <-  c("#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99","#e31a1c","#fdbf6f","#ff7f00","#cab2d6","#6a3d9a")
+names(colscale) <- c("Colombia", "FrenchGuiana", "Gabon", "Ghana", "Iran", "Peru", "PNG", "Thailand", "Uganda", "Venezuela")
+colScale <- scale_colour_manual(name = "Country",values = colscale)
+fillScale <- scale_fill_manual(name = "Country",values = colscale)
+
+set.seed(1234)
 ```
 
 
@@ -82,6 +88,8 @@ isolateInformation$Country <- unlist(lapply(isolateInformation$Location
 #Remove duplicate entries of isolates that have been sequenced more than once
 isolateInformation <- isolateInformation[!duplicated(isolateInformation$Isolate),]
 
+isolateInformation$Disease_Status[isolateInformation$Disease_Status==""] <- "Uncomplicated"
+
 otuTable <- fread("./processed_data/combined_454_tessema_renamed_otuTable_binary.txt"
                   , data.table = FALSE
                   , header=TRUE)
@@ -92,8 +100,61 @@ rownames(otuMatrix) <- otuTable$`#OTU ID`
 
 We found a total of `r sum(otuMatrix)` reads in the combined dataset, which clustered into a total of `r nrow(otuMatrix)`. Of these `r sum(rowSums(otuMatrix)==1)` were only seen in one isolate.
 
+Look  at the number of types conserved across multiple countries and continents
 
-We next perform some filtering. We exclude the lab isolates and only investigate isolates that were found to have more than 20 DBLa types. This was found to be a sensible thresholf on having adequetly sequences an isolates VAR repetoir. Furthermore as we are interested in the realtionship between isolates we exclude the singletons from the binary analysis.
+```{r}
+otuMatrixNoLab <- otuMatrix[,!(colnames(otuMatrix) %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2"))]
+otuMatrixNoLab <- otuMatrixNoLab[rowSums(otuMatrixNoLab) >= 1, ]
+
+temp <- rowsum(t(otuMatrixNoLab), 
+       group = isolateInformation$Country[match(colnames(otuMatrixNoLab), 
+                                                isolateInformation$Isolate)])
+
+plot.df <- data.frame(Isolate=colnames(temp), 
+                      num_observed=colSums(temp),
+                      num_countries=colSums(temp>0), stringsAsFactors = FALSE)
+
+ggplot(plot.df, aes(x=num_observed, y=num_countries)) +
+  geom_jitter(width = 0, height = 0.2) +
+  theme_bw() + ylab("Number of countries with gene")  +
+  xlab("Number of isolates with gene") +
+  scale_y_continuous(breaks=1:10) + 
+  theme(text = element_text(size=14))
+
+num_countries <- colSums(rowsum(t(otuMatrixNoLab), 
+       group = isolateInformation$Country[match(colnames(otuMatrixNoLab), 
+                                                isolateInformation$Isolate)])>0)
+table(num_countries)
+plot.df <- data.frame(Type=names(num_countries),
+                      country.count=num_countries, stringsAsFactors = FALSE)
+ggplot(plot.df, aes(x=country.count)) + geom_bar() +
+  scale_y_log10() +
+  xlab("Number of Countries") +
+  scale_x_continuous(breaks=1:10) + 
+  theme_bw() +
+  theme(text = element_text(size=14)) +
+  ylab("Number of DBLa types")
+
+temp.continents <- isolateInformation$Country
+temp.continents[temp.continents %in% c("Colombia","FrenchGuiana","Peru","Venezuela")] <- "S.America"
+temp.continents[temp.continents %in% c("Ghana","Gabon","Uganda")] <- "Africa"
+temp.continents[temp.continents %in% c("Iran","PNG","Thailand")] <- "Asia"
+conserved.counts.by.continent <- colSums(rowsum(t(otuMatrixNoLab), 
+                                        temp.continents[match(colnames(otuMatrixNoLab),
+                                                              isolateInformation$Isolate)])>0)
+table(conserved.counts.by.continent)
+plot.df <- data.frame(Type=names(conserved.counts.by.continent),
+                      continent.count=conserved.counts.by.continent, stringsAsFactors = FALSE)
+ggplot(plot.df, aes(x=continent.count)) + geom_bar() +
+  scale_y_log10() + 
+  xlab("Number of Continents") +
+  scale_x_continuous(breaks=1:3) + 
+  theme_bw() +
+  ylab("Number of DBLa types")
+```
+
+
+We next perform some filtering. We exclude the lab isolates and only investigate isolates that were found to have more than 20 DBLa types. This was found to be a sensible thresholf on having adequetly sequences an isolates VAR repetoir. Furthermore as we are interested in the relationship between isolates we exclude the singletons from the binary analysis.
 ```{r}
 #Filter otus that only appear in one isolate and isolates with less than 20 types
 MIN_ISOLATE_PER_OTU = 2
@@ -131,9 +192,9 @@ median_summary <- otu_sums %>% group_by(Country) %>%
             max=max(num_otus))
   
 #boxplot plot 
-gg <- ggplot(otu_sums, aes(factor(Country), num_otus, fill=Country)) + geom_boxplot()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca_df$Country))])
-gg <- gg + theme_bw()
+gg <- ggplot(otu_sums, aes(Country, num_otus, fill=Country)) + geom_boxplot()
+gg <- gg + fillScale
+gg <- gg + theme_bw() + ylab("number of DBLa types")
 gg
 ```
 
@@ -153,13 +214,19 @@ type_freq_df <- merge(type_freq_df, type_allocations
 type_freq_df$type[grepl("DBLa1", type_freq_df$domain)] <- "A"
 type_freq_df$type[!grepl("DBLa1", type_freq_df$domain)] <- "B/C"
 
+#Count number of each type
+type_freq_df %>% group_by(type) %>%
+  summarise(
+    total=sum(num_isolates)
+  )
+
 #Remove rares
 type_freq_df <- type_freq_df[type_freq_df$num_isolates>1,]
 
 #boxplot
 gg <- ggplot(type_freq_df, aes(factor(type), num_isolates, fill=type)) + geom_boxplot()
 gg <- gg + theme_bw()
-gg <- gg + scale_y_log10()
+gg <- gg + scale_y_log10() + ylab("number of DBLa types")
 gg
 ```
 
@@ -178,7 +245,7 @@ pca <- merge(pca, isolateInformation, by.x='Isolate', by.y='Isolate'
 
 #PCA plot
 gg <- ggplot(pca, aes(PC1, PC2, colour=Country)) + geom_point() 
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
+gg <- gg + colScale
 gg <- gg + theme_bw()
 gg
 ```
@@ -187,7 +254,7 @@ Also worth looking at the 3rd and 4th principal components that appear to split 
 ```{r}
 #PCA plot
 gg <- ggplot(pca, aes(PC3, PC4, colour=Country)) + geom_point() 
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
+gg <- gg  + colScale
 gg <- gg + theme_bw()
 gg
 ```
@@ -209,8 +276,9 @@ tsne_df <- merge(tsne_df, isolateInformation, by.x='Isolate', by.y='Isolate'
                 , all.x=TRUE)
 
 gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
+gg <- gg + colScale 
 gg <- gg + theme_bw()
+gg <- gg + xlab("tSNE dimension 1") + ylab("tSNE dimension 2")
 gg
 ```
 
@@ -230,91 +298,77 @@ tsne_df2 <- merge(tsne_df2, isolateInformation, by.x='Isolate', by.y='Isolate'
                 , all.x=TRUE)
 
 gg <- ggplot(tsne_df2, aes(x=x, y=y, color=Country)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
+gg <- gg + colScale
 gg <- gg + theme_bw()
 gg
 ```
 
-Investigate the impact of possible cofounders
+Investigate the impact of possible cofounders. As some datasets were collected from uncomplicated cases whilst others were collected from asymptomatic cases we can not completely rule out an impact of differences in disease status. However, the overiding clustering appears to be due to geography as after restricting to datasets of the same disease status isolates remained clustered by country.
 
-We don't have very high resolution data on age so perhaps the best we can do is split into exclusively young and 'other' datasets.
+First the uncomplicated cases
 
 ```{r}
-tsne_df$Age.aggregated <- tsne_df$Age
-young <- (tsne_df$Age.aggregated=='1-12') | (tsne_df$Age.aggregated=='1-5')
-tsne_df$Age.aggregated[young] <- "under12"
-tsne_df$Age.aggregated[!young] <- "All"
+keep <- rownames(otuMatrixNoLab_t) %in% tsne_df2$Isolate[tsne_df2$Disease_Status=="Uncomplicated"]
+otu.subset <- otuMatrixNoLab_t[keep,]
+otu.subset <- otu.subset[,colSums(otu.subset)>0]
+pca_tsne.uncom <- prcomp(otu.subset, scale. = TRUE)
 
-gg <- ggplot(tsne_df, aes(x=x, y=y, color=Age.aggregated)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
+tsne.uncom <- Rtsne(pca_tsne.uncom$x[,1:30], perplexity=10
+              , check_duplicates=FALSE, pca=FALSE
+              , max_iter=1000, dims = 2)
+
+tsne.uncom.df <- data.frame(Isolate=rownames(otuMatrixNoLab_t)[keep]
+                      , x=tsne.uncom$Y[,1], y=tsne.uncom$Y[,2]
+                      , num_types =rowSums(otuMatrixNoLab_t)[keep]
+                      , stringsAsFactors = FALSE)
+tsne.uncom.df <- merge(tsne.uncom.df, isolateInformation, by.x='Isolate', by.y='Isolate'
+                , all.x=TRUE)
+
+gg <- ggplot(tsne.uncom.df, aes(x=x, y=y, color=Country)) + geom_point()
+gg <- gg + colScale
 gg <- gg + theme_bw()
+gg <- gg + xlab("tSNE dimension 1") + ylab("tSNE dimension 2")
 gg
 ```
 
-We can investigate the ability of the different variables to predict the country of origin of an isolate. We make use of multinomial logistic regression with cross validation to assess the ability of each variable to distguish between the different countries.
+Now the asymptomatic
 
 ```{r}
-mod1.cv <- cv.glmnet(data.matrix(tsne_df[,c("x", "y")]), as.vector(tsne_df$Country), family="multinomial", type.measure = "class")
-tsne.error <- mod1.cv$cvm[mod1.cv$lambda.min==mod1.cv$lambda]
+keep <- rownames(otuMatrixNoLab_t) %in% tsne_df2$Isolate[tsne_df2$Disease_Status!="Uncomplicated"]
+otu.subset <- otuMatrixNoLab_t[keep,]
+otu.subset <- otu.subset[,colSums(otu.subset)>0]
+pca_tsne.asym <- prcomp(otu.subset, scale. = TRUE)
+tsne.asym <- Rtsne(pca_tsne.asym$x[,1:30], perplexity=10
+              , check_duplicates=FALSE, pca=FALSE
+              , max_iter=1000, dims = 2)
 
-x <- model.matrix(Country ~ Disease_Status, tsne_df)
-mod2.cv <- cv.glmnet(x, as.vector(tsne_df$Country), family="multinomial", type.measure = "class")
-disease.status.error <- mod2.cv$cvm[mod2.cv$lambda.min==mod2.cv$lambda]
+tsne.asym.df <- data.frame(Isolate=rownames(otuMatrixNoLab_t)[keep]
+                      , x=tsne.asym$Y[,1], y=tsne.asym$Y[,2]
+                      , num_types =rowSums(otuMatrixNoLab_t)[keep]
+                      , stringsAsFactors = FALSE)
+tsne.asym.df <- merge(tsne.asym.df, isolateInformation, by.x='Isolate', by.y='Isolate'
+                , all.x=TRUE)
 
-x <- model.matrix(Country ~ Age.aggregated, tsne_df)
-mod2.cv <- cv.glmnet(x, as.vector(tsne_df$Country), family="multinomial", type.measure = "class")
-age.error <- mod2.cv$cvm[mod2.cv$lambda.min==mod2.cv$lambda]
-
-x <- model.matrix(Country ~ num_types, tsne_df)
-mod2.cv <- cv.glmnet(x, as.vector(tsne_df$Country), family="multinomial", type.measure = "class")
-num.types.error <- mod2.cv$cvm[mod2.cv$lambda.min==mod2.cv$lambda]
-
-plot.df <- data.frame(`Predicition Variable`=c("tSNE 2D", "Disease Status", "Age", "# Unique VAR Types"),
-                      `Misclassification Error`=c(tsne.error, disease.status.error, age.error, num.types.error),
-                      stringsAsFactors = FALSE)
-
-ggplot(plot.df, aes(x=`Predicition.Variable`, y=`Misclassification.Error`)) + geom_col() + 
-  theme_bw() + xlab("Prediction Variable") + ylab("Misclassification Error") +
-  theme(text = element_text(size=15)) 
-```
-
-We can also colour by the number of types to investigate the impact of multiple infections
-
-```{r}
-tsne_df$num_types_range <- cut(tsne_df$num_types, c(0,40,80,120,300))
-gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country, shape=num_types_range)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
-gg <- gg + theme_bw() + scale_shape_discrete(name="# Unique VAR Types")
+gg <- ggplot(tsne.asym.df, aes(x=x, y=y, color=Country)) + geom_point()
+gg <- gg + colScale
+gg <- gg + theme_bw()
+gg <- gg + xlab("tSNE dimension 1") + ylab("tSNE dimension 2")
 gg
 ```
 
-We can also investigate disease status.
+This indicates that the number of types does not distguish countries more effectively than the tsne dimensions which are based on the types themselves.
 
-```{r}
-tsne_df$Disease_Status[tsne_df$Disease_Status==""] <- "Unknown"
-gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country, shape=Disease_Status)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
-gg <- gg + theme_bw() + scale_shape_discrete(name="Disease Status")
-gg
-```
-
-We can also investigate age.
-
-```{r}
-gg <- ggplot(tsne_df, aes(x=x, y=y, color=Country, shape=Age.aggregated)) + geom_point()
-gg <- gg + scale_color_manual(values = cols[1:length(unique(pca$Country))])
-gg <- gg + theme_bw() + scale_shape_discrete(name="Age Category")
-gg
-```
 
 We can also investigate the most conserved DBLa types. First lets look at a histogram of the number of times each DBLa is seen in the global population.
+
 ```{r}
 plot.df <- data.frame(isolate=rownames(otuMatrixNoLab), 
                       occurence.count=rowSums(otuMatrixNoLab), 
                       stringsAsFactors = FALSE)
 ggplot(plot.df, aes(x=occurence.count)) + 
   geom_histogram(bins = 50) +
-  scale_y_sqrt() + theme_bw() +
+  scale_y_sqrt(breaks=c(100,1000,3000,6000,9000),expand = c(0, 0)) + theme_bw() +
+  scale_x_continuous(expand = c(0, 0)) +
   xlab("Count of Individual Type in the Data Set") + 
   ylab("Number of Unique Types")
 ```
@@ -338,7 +392,6 @@ pheatmap(majorTypeMatrix, cluster_cols = FALSE
          , fontsize_row=2
          , show_colnames = FALSE)
 
-sum(majorTypeMatrix[grepl("UG10689", rownames(majorTypeMatrix)),])
 ```
 
 There are also a number of types that are very conserved. We now look closer at those seen more than 50 times. We first BLAST the resulting 100 most conserved sequences again NCBI BLAST nucleotide database and manually curate the hits with additional information after filtering based on a pairwise identity of 96% and a coverage threshold of 95%. Additionally we BLAST (megablast 2.2.18) against the var1, var2csa and var3 gene references from Rask et al.
@@ -348,6 +401,9 @@ makeblastdb -dbtype nucl -in ./data/var123_rask2010.fasta -out ./processed_data/
 megablast -m 8 -e 10 -i ./processed_data/majorTypesGE50.fasta -o ./processed_data/blast_var123_vs_majorTyepGE50.txt -d ./processed_data/blastdb_var123
 ```
 
+```{r}
+
+```
 
 ```{r}
 majorTypeMatrix <- otuMatrixNoLab[rowSums(otuMatrixNoLab)>=50,]
@@ -398,10 +454,7 @@ annotation_row$Annotation <- NULL
 
 # Specify colors
 ann_colors = list(
-    Country = c(Peru="#e31a1c", Gabon="#b2df8a", Colombia="#a6cee3",
-                FrenchGuiana="#1f78b4", Iran="#fb9a99",
-                Thailand="#ff7f00", Ghana="#33a02c", PNG="#fdbf6f",
-                Uganda="#cab2d6", Venezuela="#6a3d9a"),
+    Country = colscale,
     Annotation = c(none = "#7fc97f", pseudo = "#beaed4"
                    , var1 = "#fdc086", FCR3var2="#ffff99"
                    , var5="#386cb0", FCR3var3="#f0027f"),
@@ -415,7 +468,8 @@ pheatmap(majorTypeMatrix, cluster_cols = FALSE
          , fontsize_row=4
          , show_colnames = FALSE
          , annotation_colors=ann_colors
-         , treeheight_row = 0)
+         , treeheight_row = 0
+         , color=c("#ffffff","#000000"))
 
 occurence_table <- data.frame(Isolate=rownames(annotation_row), total=rowSums(majorTypeMatrix), stringsAsFactors = FALSE)
 occurence_table <- merge(occurence_table, annotation_row, by.x="Isolate", by.y=0)
@@ -425,6 +479,25 @@ write.table(rownames(majorTypeMatrix), file="./processed_data/majorTypesGE50.txt
             , quote = FALSE
             , row.names = FALSE
             , col.names = FALSE)
+```
+
+Look at distribution of types
+
+```{r}
+#Thos seen in Africa, S.America and Asia
+temp.countries <- isolateInformation$Country[match(colnames(majorTypeMatrix), isolateInformation$Isolate)]
+conserved.counts.by.country <- rowsum(t(majorTypeMatrix), temp.countries)
+hist(colSums(conserved.counts.by.country>0), breaks = 10)
+
+temp.continents <- temp.countries
+temp.continents[temp.continents %in% c("Colombia","FrenchGuiana","Peru","Venezuela")] <- "S.America"
+temp.continents[temp.continents %in% c("Ghana","Gabon","Uganda")] <- "Africa"
+temp.continents[temp.continents %in% c("Iran","PNG","Thailand")] <- "Asia"
+conserved.counts.by.continent <- rowsum(t(majorTypeMatrix), temp.continents)
+sum(colSums(conserved.counts.by.country>0)==3)
+
+most.common <- rownames(majorTypeMatrix)[which.max(rowSums(majorTypeMatrix))]
+sum(conserved.counts.by.country[,most.common])
 ```
 
 We can also look at a table of the types seen most.
@@ -558,43 +631,10 @@ We can now look at the output of RAxML.
 ```{r}
 raxml <- read.tree("./processed_data/RAxML_result.raxmlTree_T1")
 
-groupInfo <- isolateInformation %>% group_by(Country) %>%
-  do(taxa_list = .$Isolate)
-groupInfo <- groupInfo[!(groupInfo$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
-
-groups <- lapply(groupInfo$taxa_list, as.vector)
-names(groups) <- groupInfo$Country
-raxml <- groupOTU(raxml, groups)
-
-gg <- ggtree(raxml, aes(color=group, label=node)
-             , size=0.3, branch.length = "none", layout="circular")
-gg <- gg + scale_color_manual(values=cols,
-                              labels=names(groups)) +
-  theme(legend.position="right")
-gg
-```
-
-Lets check quickly how the Ugandan samples have clustered (doesnt appear interesting, do I include this?)
-```{r}
-raxml <- read.tree("./processed_data/RAxML_result.raxmlTree_T1")
-
-tempInfo <- isolateInformation
-tempInfo$Location[!grepl("Uganda", tempInfo$Location)] <- "Other"
-
-groupInfo <- tempInfo %>% group_by(Location) %>%
-  do(taxa_list = .$Isolate)
-groupInfo <- groupInfo[!(groupInfo$Location %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")),]
-
-groups <- lapply(groupInfo$taxa_list, as.vector)
-names(groups) <- groupInfo$Location
-raxml <- groupOTU(raxml, groups)
-
-gg <- ggtree(raxml, aes(color=group, label=node)
-             , size=0.3, branch.length = "none", layout="circular")
-gg <- gg + scale_color_manual(values=cols,
-                              labels=names(groups)) +
-  theme(legend.position="right")
-gg
+gtree <- ggtree(raxml, size=0.3, branch.length = "none", layout="circular")
+gtree <- gtree %<+% isolateInformation
+gtree + geom_tippoint(aes(colour=Country)) +
+  colScale + theme(legend.position = "right")
 ```
 
 ##Alignment free comparison with FFP
@@ -678,20 +718,12 @@ ffp <- read.tree("./processed_data/ffp_distance_matrix.phylip_fastme_tree.txt")
 
 isolateInformation$Country[isolateInformation$Country %in% c("3D7", "3D7xDD2", "DD2", "DD2xHB3", "HB3", "HB3xDD2")] <- "Lab"
 isolateInformation <- isolateInformation[isolateInformation$Country!="Lab",]
-groupInfo <- isolateInformation %>% group_by(Country) %>%
-  do(taxa_list = .$Isolate)
-
-groups <- lapply(groupInfo$taxa_list, as.vector)
-names(groups) <- groupInfo$Country
-ffp <- groupOTU(ffp, groups)
-
-t_cols <- cols
-names(t_cols) <- names(groups)
+groupInfo <- split(isolateInformation$Isolate, isolateInformation$Country)
+ffp <- groupOTU(ffp, groupInfo)
 
 gg <- ggtree(ffp, aes(color=group, label=node)
              , size=0.3, branch.length = "none", layout="circular")
-gg <- gg + scale_color_manual(values=as.character(t_cols[names(t_cols) %in% names(groups)]),
-                              labels=names(t_cols)) +
+gg <- gg + colScale +
   theme(legend.position="right")
 gg
 ```
