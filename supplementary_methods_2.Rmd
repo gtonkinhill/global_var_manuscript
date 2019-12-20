@@ -300,6 +300,7 @@ prop_merge <- merge(proportion, isolateInformation, by.x="Reference", by.y = "Is
 
   sum_location$reWeighted <- sum_location$avg.proportion/sum(
     sum_location$avg.proportion)
+
   sum_location$Country <- factor(sum_location$Country
                                        , levels = c("Ape", "Uganda", "Ghana",
                                                     "Gabon", "Iran", "Thailand",
@@ -326,8 +327,76 @@ ggplot(avg_proportions, aes(x=Isolate, y=reWeighted, fill=Country)) +
   theme(strip.text.x = element_text(angle=90),
         strip.text.y = element_text(angle=0)) +
   theme(text = element_text(size=15)) + fillScale
+```
+
+Uncertainty analysis
+
+```{r}
+isolateInformation <- fread("./data/isolate_information.csv"
+                            , header=TRUE
+                            , data.table = FALSE)
+#Add in country information
+isolateInformation$Country <- unlist(lapply(isolateInformation$Location
+                                            , function(x) {
+                                              str_split(x,  "_", n=2)[[1]][[1]]}))
+
+#Remove duplicate entries of isolates that have been sequenced more than once
+isolateInformation <- isolateInformation[!duplicated(isolateInformation$Isolate),]
+isolateInformation <- isolateInformation[,c("Isolate", "Country")]
+
+#Proportion file
+unc_avg_proportions <- data.frame()
+for (f in prop_files){
+  proportion <- fread(f, data.table = FALSE)
+  colnames(proportion) <- c("Target", "Reference", "Proportion")
+  prop_merge <- merge(proportion, isolateInformation, by.x="Reference", by.y = "Isolate", all.x=TRUE)
+  
+  sum_location <- purrr::map_dfr(1:100, function(i){
+    temp <- prop_merge %>% group_by(Country) %>%
+      summarise(
+        num.isolates = n(),
+        sum.prop = sum(sample(Proportion, 10)),
+        avg.proportion = mean(sample(Proportion, 10))
+      )
+    temp$reWeighted <- temp$avg.proportion/sum(temp$avg.proportion)
+    return(temp)
+  })
+  
+  iso <- gsub(".*proportions/","",f)
+  iso <- gsub("_proportions.txt","",iso)
+  sum_location$Isolate <- rep(iso, nrow(sum_location))
+  unc_avg_proportions <- rbind(unc_avg_proportions, sum_location)
+}
+
+colnames(isolateInformation) <- c("Isolate","Origin")
+
+unc_avg_prop_w_iso <- merge(unc_avg_proportions, isolateInformation, by.x="Isolate", by.y="Isolate", all.x=TRUE)
+
+summary_prop_table <- unc_avg_prop_w_iso %>% group_by_(.dots=c("Country", "Origin")) %>%
+  summarise(
+    mean=mean(reWeighted, na.rm=TRUE),
+    sd=sd(reWeighted, na.rm=TRUE)
+  )
+levels = c("Uganda", "Ghana","Gabon", "Iran", "Thailand","PNG", "Peru"
+           , "FrenchGuiana","Venezuela", "Colombia")
+summary_prop_table$Origin <- factor(summary_prop_table$Origin
+                                    , levels=levels)
+summary_prop_table$Country <- factor(summary_prop_table$Country
+                                    , levels=levels)
+
+ggplot(summary_prop_table, aes(Country, Origin, fill = mean)) + geom_raster() +
+  scale_fill_gradientn(
+                       colours = c('#b2182b','#ef8a62','#fddbc7','#d1e5f0','#67a9cf','#2166ac')) +
+  geom_text(data=summary_prop_table,aes(x=Country, y=Origin
+                                        ,label=paste(sprintf("%0.3f", round(mean, digits = 3))
+                                                     , sprintf("%0.3f", round(sd, digits = 3))
+                                                     , sep = "±"), size=20)
+            , size=3) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(text = element_text(size=20))
 
 ```
+
 
 ```{r}
 model.data.df <- fread("./data/isolate_information.csv"
@@ -586,15 +655,17 @@ summ_location <- prop_merge %>% group_by(Country) %>%
     avg.proportion = mean(Proportion)
   )
 
-summ_location <- summ_location[summ_location$Country!="Ape",]
-summ_location$reWeighted <- summ_location$avg.proportion/sum(summ_location$avg.proportion)
+# summ_location <- summ_location[summ_location$Country!="Ape",]
+summ_location$reWeighted <- summ_location$avg.proportion/sum(summ_location$avg.proportion)*100
 
 summ_location$Country <- factor(summ_location$Country
-                                       , levels = c("Uganda", "Ghana", "Gabon", "Iran", "Thailand", "PNG", "Peru", "FrenchGuiana", "Venezuela", "Colombia"))
+                                       , levels = c("Ape","Uganda", "Ghana", "Gabon", "Iran", "Thailand", "PNG", "Peru", "FrenchGuiana", "Venezuela", "Colombia"))
 gg <- ggplot(summ_location, aes(x=Country, y=reWeighted, fill=Country))
 gg <- gg + geom_bar(stat = "identity")
 gg <- gg + theme_bw() + theme(axis.text.x = element_text(angle = 90))
-gg + fillScale
+gg + fillScale +
+  scale_y_continuous(trans="log1p", breaks = c(1,10,100)) +
+  ylab("percentage match by JHMM")
 ```
 
 ####Other Ape parasites
@@ -1200,10 +1271,14 @@ outliers <- unique(unlist(windows[outliers]))
 plot_data$outlier <- (1:nrow(plot_data) %in% outliers) & (plot_data$occupancy>0.2) & (plot_data$recombination>100)
 
 plot_data <- melt(plot_data, id.vars = c("position", "outlier"))
+plot_data$variable <- as.character(plot_data$variable)
+plot_data$variable[plot_data$variable=="recombination"] <- "recombination count"
+plot_data$variable[plot_data$variable=="occupancy"] <- "occupancy of multiple sequence alignment columns"
 gg <- ggplot(plot_data, aes(x=position, y=value, col=outlier), fill=variable)
 gg <- gg + geom_bar(stat='identity')
 gg <- gg + facet_wrap(~variable, scales = "free_y", ncol=1)
 gg <- gg + theme_bw() + xlab("") + theme(text = element_text(size=14))
+gg <- gg + ylab("")
 gg + gg_block_aln + patchwork::plot_layout(ncol=1)
 ```
 

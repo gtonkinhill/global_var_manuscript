@@ -63,6 +63,7 @@ with open("./processed_data/tessema2015_renamed.fas", 'w') as outfile:
 ```
 
 We start by clustering the raw 454 reads along with the reads from Tessema et al using a python script that makes use of the Usearch software suite.
+
 ```{bash, eval = FALSE}
 cat ./data/combined_all_454_noPOR.fasta ./processed_data/tessema2015_renamed.fas > ./processed_data/combined_454_tessema.fas
 
@@ -157,8 +158,8 @@ ggplot(plot.df, aes(x=continent.count)) + geom_bar() +
 We next perform some filtering. We exclude the lab isolates and only investigate isolates that were found to have more than 20 DBLa types. This was found to be a sensible thresholf on having adequetly sequences an isolates VAR repetoir. Furthermore as we are interested in the relationship between isolates we exclude the singletons from the binary analysis.
 ```{r}
 #Filter otus that only appear in one isolate and isolates with less than 20 types
-MIN_ISOLATE_PER_OTU = 2
-MIN_OTUS_PER_ISOLATE = 20
+MIN_ISOLATE_PER_OTU = 1
+MIN_OTUS_PER_ISOLATE = 2
 MAX_OTUS_PER_ISOLATE = Inf
 otuMatrix <- otuMatrix[, colSums(otuMatrix) >= MIN_OTUS_PER_ISOLATE]
 otuMatrix <- otuMatrix[, colSums(otuMatrix) <= MAX_OTUS_PER_ISOLATE]
@@ -175,7 +176,6 @@ usearch -usearch_global ./data/3D7.fasta -db ./data/combined_all_454_noPOR.fasta
 
 ```{r}
 otu_match_3D7 <- unique(fread("./processed_data/3D7_vs_all_blast6out.txt", data.table = FALSE)[,2])
-sum(colnames(otuMatrixNoLab_t) %in% otu_match_3D7)
 ```
 
 We can now look at the number of reads per isolate for the different countries.
@@ -401,9 +401,6 @@ makeblastdb -dbtype nucl -in ./data/var123_rask2010.fasta -out ./processed_data/
 megablast -m 8 -e 10 -i ./processed_data/majorTypesGE50.fasta -o ./processed_data/blast_var123_vs_majorTyepGE50.txt -d ./processed_data/blastdb_var123
 ```
 
-```{r}
-
-```
 
 ```{r}
 majorTypeMatrix <- otuMatrixNoLab[rowSums(otuMatrixNoLab)>=50,]
@@ -507,6 +504,41 @@ kable(occurence_table)
 
 ```{bash, eval=FALSE}
 blastn -perc_identity 96 -query ./majorTypesGE50.fasta -evalue 10 -outfmt '6 qseqid sseqid qlen length nident pident evalue bitscore salltitles'  -db nt -remote -out blastNTsearch.txt
+```
+
+We can also search for these conserved types in the recent dataset of Otto et al., 2019.
+
+```{python, eval=FALSE}
+from mungo.fasta import FastaReader
+
+c=0
+with open("index.csv", 'w') as index:
+    with open("renamed_varDB.fulldataset.1kb.nt.fasta", 'w') as outfile:
+        for h,s in FastaReader("varDB.fulldataset.1kb.nt.fasta"):
+                outfile.write(">"+str(c)+"\n"+s+"\n")
+                index.write(str(c)+","+h.replace(","," ")+"\n")
+                c+=1
+```
+
+```
+makeblastdb -in renamed_varDB.fulldataset.1kb.nt.fasta -dbtype nucl -parse_seqids
+blastn -db renamed_varDB.fulldataset.1kb.nt.fasta -query majorTypesGE50.fasta -out search_results.txt -outfmt 7 -evalue 1e-6 -num_threads 30
+```
+
+```{python, eval=FALSE}
+index = {}
+with open("index.csv", 'r') as indexfile:
+  for line in indexfile:
+    line=line.strip().split(",")
+    index[line[0]] = line[1]
+
+with open("search_results.txt", 'r') as infile:
+  with open("conserved_var_vs_otto2019_search.txt", 'w') as outfile:
+    for line in infile:
+      if line[0]=="#": continue
+      line = line.strip().split()
+      line[1] = index[line[1]]
+      outfile.write("\t".join(line)+"\n")
 ```
 
 #Run Admixture
@@ -745,23 +777,23 @@ write.table(format(distMatrix, digits=10)
 
 Plot the tree without Peru and Venezuela
 ```{r}
-ffp <- read.tree("./processed_data/ffp_distance_matrix_noPeruVenezuela.phylip_fastme_tree.txt")
-
-isolateInformationNoPeruVen <- isolateInformation[!(isolateInformation$Country %in% c("Peru", "Venezuela")),]
-
-groupInfo <- isolateInformationNoPeruVen %>% group_by(Country) %>%
-  do(taxa_list = .$Isolate)
-
-groups <- lapply(groupInfo$taxa_list, as.vector)
-names(groups) <- groupInfo$Country
-ffp <- groupOTU(ffp, groups)
-
-gg <- ggtree(ffp, aes(color=group, label=node)
-             , size=0.3, branch.length = "none", layout="circular")
-gg <- gg + scale_color_manual(values=as.character(t_cols[names(t_cols) %in% names(groups)]),
-                              labels=names(groups)) +
-  theme(legend.position="right")
-gg
+# ffp <- read.tree("./processed_data/ffp_distance_matrix_noPeruVenezuela.phylip_fastme_tree.txt")
+# 
+# isolateInformationNoPeruVen <- isolateInformation[!(isolateInformation$Country %in% c("Peru", "Venezuela")),]
+# 
+# groupInfo <- isolateInformationNoPeruVen %>% group_by(Country) %>%
+#   do(taxa_list = .$Isolate)
+# 
+# groups <- lapply(groupInfo$taxa_list, as.vector)
+# names(groups) <- groupInfo$Country
+# ffp <- groupOTU(ffp, groups)
+# 
+# gg <- ggtree(ffp, aes(color=group, label=node)
+#              , size=0.3, branch.length = "none", layout="circular")
+# gg <- gg + scale_color_manual(values=as.character(t_cols[names(t_cols) %in% names(groups)]),
+#                               labels=names(groups)) +
+#   theme(legend.position="right")
+# gg
 ```
 
 ##Investigating association with severe disease segments
