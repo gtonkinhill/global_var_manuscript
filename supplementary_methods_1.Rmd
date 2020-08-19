@@ -326,7 +326,7 @@ tsne.uncom.df <- merge(tsne.uncom.df, isolateInformation, by.x='Isolate', by.y='
 
 gg <- ggplot(tsne.uncom.df, aes(x=x, y=y, color=Country)) + geom_point()
 gg <- gg + colScale
-gg <- gg + theme_bw()
+gg <- gg + theme_bw(base_size = 14)
 gg <- gg + xlab("tSNE dimension 1") + ylab("tSNE dimension 2")
 gg
 ```
@@ -351,7 +351,7 @@ tsne.asym.df <- merge(tsne.asym.df, isolateInformation, by.x='Isolate', by.y='Is
 
 gg <- ggplot(tsne.asym.df, aes(x=x, y=y, color=Country)) + geom_point()
 gg <- gg + colScale
-gg <- gg + theme_bw()
+gg <- gg + theme_bw(base_size = 14)
 gg <- gg + xlab("tSNE dimension 1") + ylab("tSNE dimension 2")
 gg
 ```
@@ -391,7 +391,6 @@ pheatmap(majorTypeMatrix, cluster_cols = FALSE
          , show_rownames = FALSE
          , fontsize_row=2
          , show_colnames = FALSE)
-
 ```
 
 There are also a number of types that are very conserved. We now look closer at those seen more than 50 times. We first BLAST the resulting 100 most conserved sequences again NCBI BLAST nucleotide database and manually curate the hits with additional information after filtering based on a pairwise identity of 96% and a coverage threshold of 95%. Additionally we BLAST (megablast 2.2.18) against the var1, var2csa and var3 gene references from Rask et al.
@@ -539,6 +538,28 @@ with open("search_results.txt", 'r') as infile:
       line = line.strip().split()
       line[1] = index[line[1]]
       outfile.write("\t".join(line)+"\n")
+```
+
+```{r}
+otto_search <- fread("./processed_data/conserved_var_vs_otto2019_search.txt", data.table = FALSE)
+otto_acc <- fread("./processed_data/otto2019_accessions.txt", data.table = FALSE)
+otto_search$sampleID <- purrr::map_chr(str_split(otto_search$V2, "\\."), ~ .x[[1]])
+otto_search$location <- otto_acc$`Origin of sample`[match(otto_search$sampleID, otto_acc$ID)]
+
+type_country_count <- data.frame(isolate=colnames(conserved.counts.by.country), 
+           country.count=rowSums(t(conserved.counts.by.country)>0), 
+           stringsAsFactors = FALSE)
+
+otto_search <- otto_search[as.numeric(otto_search$V3) > 96,]
+num_countries <- otto_search %>% group_by(V1) %>%
+  summarise(
+    num_loc = length(unique(location[!is.na(location)])),
+    countries = list(unique(location[!is.na(location)]))
+  )
+num_countries$countries <- purrr::map_chr(num_countries$countries, ~ paste(.x, collapse = "/"))
+write.table(num_countries, file="processed_data/conserved_types_otto_countries.txt", sep=",", quote = FALSE, row.names = FALSE)
+# num_countries$typeID <- purrr::map_chr(str_split(num_countries$V1, "\\|"), ~ .x[[1]])
+# num_countries <- merge(num_countries, type_country_count, by.x="typeID", by.y="isolate", all.x = TRUE)
 ```
 
 #Run Admixture
